@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { AppNavigator } from "./src/navigation/AppNavigator";
-import { AppDataSource } from "./utils/database/data-source.ts"
+import { AppDataSource } from  "./utils/database/data-source"
 
 export default function App() {
   useEffect(() => {

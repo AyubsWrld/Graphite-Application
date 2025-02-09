@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
-import { AppDataSource } from "../../utils/database/data-source.ts"
-import { User } from "../../utils/database/entities/User.ts"
+import { AppDataSource } from "../../utils/database/data-source";
+import { User } from "../../utils/database/entities/User";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Login">;
 
@@ -13,12 +13,18 @@ export function LoginScreen({ navigation }: Props) {
 
   const handleCreateUser = async () => {
     try {
+      if (!AppDataSource.isInitialized) {
+        console.log("Database not initialized yet");
+        return;
+      }
+      
       const userRepository = AppDataSource.getRepository(User);
       const user = new User();
       user.username = username;
       user.email = email;
-      await userRepository.save(user);
-      console.log("User created successfully");
+      
+      const savedUser = await userRepository.save(user);
+      console.log("User created successfully:", savedUser);
       navigation.replace("Home");
     } catch (error) {
       console.error("Error creating user:", error);
@@ -42,8 +48,14 @@ export function LoginScreen({ navigation }: Props) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      <Button title="Create User" onPress={handleCreateUser} />
-      <Button title="Go to Home" onPress={() => navigation.replace("Home")} />
+      <Button 
+        title="Create User" 
+        onPress={handleCreateUser}
+      />
+      <Button 
+        title="Go to Home" 
+        onPress={() => navigation.replace("Home")} 
+      />
     </View>
   );
 }
