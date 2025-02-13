@@ -188,7 +188,7 @@ export const openImagePicker = async (): Promise<FILE_ERROR> => {
 };
 
 
-export const openImagePicker = async () : Promise<FILE_ERROR> => {
+export const writeFile = async () : Promise<FILE_ERROR> => {
   return new Promise((resolve) => {
     console.log("IT worked !") ; 
   });

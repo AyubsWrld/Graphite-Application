@@ -6,9 +6,6 @@ import { FILE_ERROR , openImagePicker  , writeFile } from "../../lib/FileManager
 
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">
 
-
-
-
 export function ProfileScreen({ navigation }: Props) {
   const [ isSelected ,  setIsSelected ] = useState<boolean>(false); 
 
