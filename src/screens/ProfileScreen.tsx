@@ -4,22 +4,34 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack"
 import { AppStackParamList } from "../navigation/AppNavigator"
 import { FILE_ERROR , openImagePicker  , writeFile } from "../../lib/FileManager"
 
+
+const APP_DBG = "APP" ; 
+
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">
 
 export function ProfileScreen({ navigation }: Props) {
+
   const [ isSelected ,  setIsSelected ] = useState<boolean>(false); 
+  const [ file , setFile ] = useState<FileContainer>( null ) // This has to be an array later so we can send multiple files 
 
   const handleImage = async () => {
-    const exitCode : FILE_ERROR = await openImagePicker() ; 
-    if(!exitCode) console.log("undef") ; 
-    if(exitCode == FILE_ERROR.FILE_SUCCESS){
+    const file : FileContainer = await openImagePicker() ; 
+    if(!file) throw new Error( "Failed to parse image" ) ;  
+    else{
       console.log("Succesfully selected the file") ; 
       setIsSelected(true) ; 
+      setFile(file) ; 
+      console.log(`${APP_DBG} : Succesfully set file : ${file}` ) ; 
     }
   }
 
-  const writeFile = async () => {
-    const exitCode = await writeFile() ; 
+  const handleUpload = async ( file : FileContainer ) => { 
+    console.log(`${APP_DBG} : Attempting to write file : ${file}`) ; 
+    const exitCode = await writeFile( file ) ; 
+    if(exitCode == FILE_ERROR.FILE_SUCCESS) console.log("Succesfully uploaded file") ; 
+    else{ 
+      console.warn("Upload Failed") ; 
+    }
   }
 
   return (
@@ -35,10 +47,14 @@ export function ProfileScreen({ navigation }: Props) {
         onPress={() => handleImage()} 
       />
 
-      { isSelected && <Button
-        title="Upload Image"
-        onPress={() => handleUpload()} 
-      />}
+      { isSelected &&
+        <View>
+          <Button
+            title="Upload Image"
+            onPress={() => handleUpload(file)} 
+          />
+        </View>
+      }
     </View>
   )
 }

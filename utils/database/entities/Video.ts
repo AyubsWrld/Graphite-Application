@@ -1,8 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column , PrimaryColumn  } from "typeorm";
 
 @Entity()
 export class video{
-    @PrimaryGeneratedColumn( { type : "varchar"} )
+    @PrimaryColumn( { type : "varchar"} )
     abs_path  : string ;
 
     @Column({ type: "varchar" })

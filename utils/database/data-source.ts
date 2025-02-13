@@ -1,5 +1,7 @@
 import { DataSource } from "typeorm";
-import { User } from "./entities/User";
+import { User  } from "./entities/User";
+import { Video } from "./entities/Video";
+import { Image } from "./entities/Image";
 
 export const AppDataSource = new DataSource({
   type: "react-native",
@@ -7,7 +9,7 @@ export const AppDataSource = new DataSource({
   location: "default",
   synchronize: true,
   logging: true,
-  entities: [User],
+  entities: [ User , Image , Video ],
   subscribers: [],
   migrations: [],
 });
