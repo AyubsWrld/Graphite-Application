@@ -8,59 +8,16 @@ import { User } from "../../utils/database/entities/User" // adjust path as need
 type Props = NativeStackScreenProps<AppStackParamList, "Home">
 
 export function HomeScreen({ navigation }: Props) {
-  const [searchUsername, setSearchUsername] = useState("");
-  const [user, setUser] = useState<User | null>(null);
-  const [error, setError] = useState("");
-
-  const searchUser = async () => {
-    try {
-      const userRepository = AppDataSource.getRepository(User);
-      const foundUser = await userRepository.findOne({
-        where: { username: searchUsername }
-      });
-
-      if (foundUser) {
-        setUser(foundUser);
-        setError("");
-      } else {
-        setUser(null);
-        setError("User not found");
-      }
-    } catch (err) {
-      setError("Error searching for user");
-      console.error(err);
-    }
-  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Home Screen</Text>
-      
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.input}
-          value={searchUsername}
-          onChangeText={setSearchUsername}
-          placeholder="Enter username to search"
-          autoCapitalize="none"
-        />
-        <Button title="Search" onPress={searchUser} />
-      </View>
-
-      {error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : user ? (
-        <View style={styles.userInfo}>
-          <Text style={styles.label}>Username:</Text>
-          <Text style={styles.value}>{user.username}</Text>
-          <Text style={styles.label}>Email:</Text>
-          <Text style={styles.value}>{user.email}</Text>
-        </View>
-      ) : null}
-
       <Button 
         title="Go to Profile" 
         onPress={() => navigation.navigate("Profile")} 
+      />
+      <Button 
+        title="Go to Debugging" 
+        onPress={() => navigation.navigate("Debugging")} 
       />
     </View>
   )
@@ -70,7 +27,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    alignItems: "center"
+    alignItems: "center" ,
+    justifyContent : "center"
   },
   title: {
     fontSize: 24,

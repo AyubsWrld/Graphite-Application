@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import { HomeScreen } from "../screens/HomeScreen"
 import { LoginScreen } from "../screens/LoginScreen"
 import { ProfileScreen } from "../screens/ProfileScreen"
+import { Debugging } from "../screens/Debugging"
 
 export type AppStackParamList = {
   Home: undefined
@@ -20,6 +21,7 @@ export function AppNavigator() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Debugging" component={Debugging} />
       </Stack.Navigator>
     </NavigationContainer>
   )

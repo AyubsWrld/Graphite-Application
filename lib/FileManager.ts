@@ -1,3 +1,4 @@
+
 import { launchCamera , launchImageLibrary } from "react-native-image-picker" ; 
 import { AppDataSource } from "../utils/database/data-source.ts"  ;  
 import { Image as ImageTable } from "../utils/database/entities/Image.ts" ; 
@@ -19,7 +20,6 @@ type ErrorMessage = {
   errorMessage : string     ;
 }
 
-
 let ERROR_MAP: ErrorMessage[] = [
   { errorFlag: FILE_ERROR.FILE_SUCCESS, errorMessage: "Success" },
   { errorFlag: FILE_ERROR.USER_CANCEL, errorMessage: "User Cancelled" },
@@ -29,15 +29,6 @@ type Dimension  = {
   width  : number ; 
   height : number ; 
 }
-
-/*
- * abstract class File  
- * @purpose         : defines shape for other filetypes 
- * @member_variable 
- * 
-*/
-
-
 
 abstract class FileContainer {
   protected fileName   : string    ;
@@ -162,30 +153,13 @@ class Image extends FileContainer {
   }
 }
 
-interface FileFactory { 
-  createFile(fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string , duration? : number ) : FileContainer ; 
+const createVideo = ( fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string , duration: number ): FileContainer => {
+  return new Video( fileName , fileSize , dimensions , uri , extension , duration ) ; 
 }
 
-class VideoFactory implements FileFactory { 
-  createFile(fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string , duration : number ) : FileContainer {
-	  return new Video( fileName , fileSize , dimensions , uri , extension , duration ) 
-  }
+const createImage = ( fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string ): FileContainer => {
+  return new Image( fileName , fileSize , dimensions , uri , extension ) ; 
 }
-
-class ImageFactory implements FileFactory{
-  createFile(fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string ) : FileContainer {
-	  return new Image( fileName , fileSize , dimensions , uri , extension ) ;
-  }
-}
-
-
-/* @signature : getFileCategory( value : string ) : string 
- * @params    : String with file identifier to split 
- * @purpose   : Derive file type from string 
- * @return    : String value of general file type ( Video , Image , Document )  
-*/
-
-
 
 const getFileCategory = ( value : string ) : string => {
 	return value.split("/")[0] 
@@ -195,8 +169,7 @@ const createFileObject = ( metadata : any ) => {
 	let file : FileContainer ; 
 	const fileType = getFileCategory(metadata.type) 
 	if(fileType && fileType == "video"){
-		const factory = new VideoFactory() ; 
-		file = factory.createFile(
+		file = createVideo(
 			metadata.fileName ,
 		       	metadata.fileSize ,
 			{ width : metadata.width , height : metadata.height } ,
@@ -206,8 +179,7 @@ const createFileObject = ( metadata : any ) => {
 		) ; 
 	}
 	else if(fileType && fileType == "image"){
-		const factory = new ImageFactory() ; 
-		file = factory.createFile(
+		file = createImage(
 			metadata.fileName ,
 		       	metadata.fileSize ,
 			{ width : metadata.width , height : metadata.height } ,
@@ -218,22 +190,10 @@ const createFileObject = ( metadata : any ) => {
 	return file ; 
 }
 
-/* @signature : handleFile( metadata : object / any ) : FILE_ERROR
- * @params    : object containing file metadata 
- * @purpose   : write file contents to db 
- * @return    : SUCCESS if ok , some FILE_ERROR if something wrong occurs 
-*/
-
 const handleFile = ( metadata : any ) => { 
       const file = createFileObject(metadata) ; 
       return file 
 }
-
-/*
- * @params  : None 
- * @purpose : Allows user to open and select image of their choice 
- * @return  : FILE_ERROR 
-*/
 
 export const openImagePicker = async (): Promise<FileContainer> => {
   return new Promise(( resolve , reject ) => {
