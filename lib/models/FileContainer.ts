@@ -20,6 +20,7 @@ abstract class FileContainer {
   abstract getDimensions(): Dimension;
   abstract getFileSize(): number;
   abstract setPath(filepath: string): FILE_ERROR;
+  abstract uploadFile( url : string): FILE_ERROR;
   abstract saveFile(): Promise<FILE_ERROR>;
 
   protected getFormData(): FormData {

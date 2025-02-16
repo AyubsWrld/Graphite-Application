@@ -9,22 +9,71 @@ class Image extends FileContainer {
     super(fileName, fileSize, dimensions, uri, extension);
   }
 
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
   getFileType(): string {
     return "image";
   }
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
 
   getDimensions(): Dimension {
     return this.dimensions;
   }
 
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
   getFileSize(): number {
     return this.fileSize;
   }
+
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
 
   setPath(filepath: string): FILE_ERROR {
     console.warn("setPath() not implemented");
     return FILE_ERROR.RESP_ERROR;
   }
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
+  uploadFile( url : string): FILE_ERROR { 
+    console.log(`FILE : Attempting to upload ${this.fileName} to ${url} `) ; 
+    return FILE_ERROR.FILE_SUCCESS ; 
+  }
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
 
   async saveFile(): Promise<FILE_ERROR> {
     try {
