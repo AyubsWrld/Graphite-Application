@@ -1,0 +1,7 @@
+export enum FILE_ERROR {
+  FILE_SUCCESS = 0,
+  USER_CANCEL = 1,
+  RESP_ERROR = 2,
+  UPLOAD_ERROR = 3,
+  NETWORK_ERROR = 4,
+}
