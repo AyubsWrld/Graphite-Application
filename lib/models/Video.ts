@@ -22,6 +22,17 @@ class Video extends FileContainer {
   * @return    :  
   */
 
+  getFileName(): string {
+    return this.fileName ; 
+  }
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
   getFileType(): string {
 
     return "video";

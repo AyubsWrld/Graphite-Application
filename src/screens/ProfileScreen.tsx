@@ -2,12 +2,13 @@ import { View, Text, Button } from "react-native" ;
 import React, { useState } from "react" ; 
 import { NativeStackScreenProps } from "@react-navigation/native-stack" ; 
 import { AppStackParamList } from "../navigation/AppNavigator" ; 
-import { openImagePicker, writeFile, uploadFileToServer, UploadProgress } from "../../lib/modules/FileManager.ts" ; 
+import { openImagePicker, writeFile, UploadProgress } from "../../lib/modules/FileManager.ts" ; 
 import { SERIALIZATION_ERROR , serialize } from "../../lib/modules/HLSerialize" ; 
+import { FILE_ERROR } from "../../lib/types/ErrorTypes" ; 
 import type { FileContainer } from "../../lib/models/FileContainer" ; 
 
 const APP_DBG : string = "APP" ;
-const UPLOAD_URL = "http://192.168.1.82:3000/upload" ; 
+const UPLOAD_URL = "http://192.168.1.71:3000/upload" ;  // define this outside of the component
 
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">
 
@@ -17,7 +18,7 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
-  const handleImage = async () => {
+  const handleSelect = async () => {
     try {
       const selectedFile = await openImagePicker();
       if (!selectedFile) {
@@ -33,51 +34,39 @@ export function ProfileScreen({ navigation }: Props) {
     }
   }
 
-  const handleSerialize = ( file : FileContainer ) => { // Return serialization error
-    const errorCode = serialize( file ) ; 
-  }
-
   const handleUpload = async (fileToUpload: FileContainer) => {
+    // Write to database
     try {
       setIsUploading(true);
-      console.log(`${APP_DBG} : Attempting to upload file: ${fileToUpload}`);
-
-      const exitCode = await uploadFileToServer(
-        fileToUpload,
-        UPLOAD_URL,
-        (progress: UploadProgress) => {
-          setUploadProgress(progress.percentage);
-          console.log(`${APP_DBG} : Upload progress: ${progress.percentage}%`);
-        }
-      );
-
-      if (exitCode === FILE_ERROR.FILE_SUCCESS) {
-        console.log(`${APP_DBG} : Successfully uploaded file`);
-        // Optionally save to local storage after successful upload
-        await writeFile(fileToUpload);
+      const writeError  = await writeFile(fileToUpload); 
+      const uploadError = fileToUpload.uploadFile( UPLOAD_URL , setUploadProgress ) ; 
+      if ( writeError!= FILE_ERROR.FILE_SUCCESS ) {
+        console.error(`${APP_DBG} : File upload failed with error: ${writeError}`);
+        console.log( writeError , uploadError ) ; 
       } else {
-        console.warn(`${APP_DBG} : Upload Failed with error code:`, exitCode);
+        console.log(`${APP_DBG} : File wrote & upload successful`);
       }
     } catch (error) {
       console.error(`${APP_DBG} : Error during upload:`, error);
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
     }
-  }
+  };
+
+
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Text>Profile Screen</Text>
-      
       <Button
+      
         title="Go Back"
         onPress={() => navigation.goBack()}
       />
       
       <Button
         title="Select Image"
-        onPress={handleImage}
+        onPress={handleSelect}
         disabled={isUploading}
       />
       {isSelected && file && (
@@ -92,13 +81,6 @@ export function ProfileScreen({ navigation }: Props) {
           )}
         </View>
       )}
-      { isSelected && file && file.extension == "mp4" && (
-        <Button
-          title={"Serialize"}
-          onPress={ () => handleSerialize()}
-        />
-
-      ) }
     </View>
   )
 }

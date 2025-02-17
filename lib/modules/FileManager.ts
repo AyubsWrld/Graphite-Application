@@ -5,6 +5,19 @@ import FileContainer from "../../lib/models/FileContainer" ;
 import Image from "../../lib/models/Image" ; 
 import Video from "../../lib/models/Video" ; 
 
+
+/*
+ * @signature :  createVideo( @params ) 
+ * @purpose   :  uploads file to remote server @ url  . 
+ * @params    :  fileName  : Name of file . 
+ * @params    :  fileSize  : Size of file in bytes . 
+ * @params    :  dimension : tuple object containing ( height : width ) . 
+ * @params    :  uri       : uri of video on local device . 
+ * @params    :  extension : file extension of the selected video  . 
+ * @params    :  duration  : Duration of video in seconds . 
+ * @return    :  FileContainer :  Video concrete class 
+*/
+
 const createVideo = (
   fileName: string,
   fileSize: number,
@@ -16,6 +29,18 @@ const createVideo = (
   return new Video(fileName, fileSize, dimensions, uri, extension, duration);
 };
 
+
+/*
+ * @purpose   :  createVideo( @params ) 
+ * @signature :  Creates a new Image object container . 
+ * @params    :  fileName  : Name of file . 
+ * @params    :  fileSize  : Size of file in bytes . 
+ * @params    :  dimension : tuple object containing ( height : width ) . 
+ * @params    :  uri       : uri of video on local device . 
+ * @params    :  extension : file extension of the selected video  . 
+ * @return    :  FileContainer :  Image concrete class 
+*/
+
 const createImage = (
   fileName: string,
   fileSize: number,
@@ -26,9 +51,23 @@ const createImage = (
   return new Image(fileName, fileSize, dimensions, uri, extension);
 };
 
+/*
+ * @signature :  getFileCategory( value ) .
+ * @purpose   :  Derives the media type of a file given the string return from openImagePicker ( "image" , "video" ) .
+ * @params    :  value : unparsed string returned from openImagePicker object ( "image/jpg" )  .
+ * @return    :  String representing the media type  .
+*/
+
 const getFileCategory = (value: string): string => {
   return value.split("/")[0];
 };
+
+
+/*
+ * @signature :  openImagePicker() 
+ * @purpose   :  utilizes react-native-image-picker to select a media source from the users camera and parses it as a class object . 
+ * @return    :  FILE_ERROR :  Error code representing whether or not the file parsing was successful . 
+*/
 
 export const openImagePicker = async (): Promise<FileContainer> => {
   return new Promise((resolve, reject) => {
@@ -64,20 +103,25 @@ export const openImagePicker = async (): Promise<FileContainer> => {
           );
         }
 
-        resolve(file); // Return the created file object
+        resolve(file); 
       }
     });
   });
 };
 
+/*
+ * @signature :  writeFile( file : FileContainer ) 
+ * @purpose   :  Writes file details to local sql db utiilzing the FileContainer objects member variables passed in as a parameter . 
+ * @param     :  FileContainer object . 
+ * @return    :  FILE_ERROR :  Error code representing whether or not the file writing was successful or not . 
+*/
+
 export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
   try {
-    // Attempt to save the file locally
     const saveResult = await file.saveFile();
     if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
       return saveResult; // If saving failed, return the error code
     }
-
     console.log("File saved successfully:", file.fileName);
     return FILE_ERROR.FILE_SUCCESS;
   } catch (error) {
@@ -86,24 +130,4 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
   }
 };
 
-export const uploadFileToServer = async (
-  file: FileContainer,
-  uploadUrl: string,
-  onProgress?: (progress: UploadProgress) => void
-): Promise<FILE_ERROR> => {
-  try {
-    // First save the file locally
-    const saveResult = await writeFile(file);
-    if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
-      return saveResult; // If save failed, return the error code
-    }
 
-    console.log("File saved locally, now uploading...");
-
-    // Then upload the file
-    return await file.uploadFile(uploadUrl, onProgress);
-  } catch (error) {
-    console.error("Error during upload:", error);
-    return FILE_ERROR.UPLOAD_ERROR;
-  }
-};

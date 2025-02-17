@@ -9,6 +9,17 @@ class Image extends FileContainer {
     super(fileName, fileSize, dimensions, uri, extension);
   }
 
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
+
+  getFileName(): string {
+    return this.fileName ; 
+  }
 
   /*
   * @signature :  
@@ -63,9 +74,40 @@ class Image extends FileContainer {
   * @return    :  
   */
 
-  uploadFile( url : string): FILE_ERROR { 
-    console.log(`FILE : Attempting to upload ${this.fileName} to ${url} `) ; 
-    return FILE_ERROR.FILE_SUCCESS ; 
+  // async uploadFile( 
+  //   uploadUrl : string , 
+  //   onProgress? : ( progess : UploadProgress )  => void 
+  // ): Promise<FILE_ERROR> { 
+  //   console.log(`FILE : Attempting to upload ${this.fileName} to ${url} `) ; 
+  //   return FILE_ERROR.FILE_SUCCESS ; 
+  // }
+
+
+  async uploadFile(uploadUrl: string, onProgress?: (progress: UploadProgress) => void): Promise<FILE_ERROR> {
+    try {
+      const formData = this.getFormData();
+      formData.append("file", { uri: this.uri, type: `${this.getFileType()}/${this.extension}`, name: this.fileName });
+
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        if (onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              onProgress({ bytesUploaded: event.loaded, totalBytes: event.total, percentage: (event.loaded / event.total) * 100 });
+            }
+          };
+        }
+
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve(FILE_ERROR.FILE_SUCCESS) : resolve(FILE_ERROR.UPLOAD_ERROR));
+        xhr.onerror = () => resolve(FILE_ERROR.NETWORK_ERROR);
+        xhr.open("POST", uploadUrl);
+        xhr.setRequestHeader("Content-Type", "multipart/form-data");
+        xhr.send(formData);
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return FILE_ERROR.UPLOAD_ERROR;
+    }
   }
 
   /*
