@@ -117,17 +117,19 @@ export const openImagePicker = async (): Promise<FileContainer> => {
 */
 
 export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
-  try {
-    const saveResult = await file.saveFile();
-    if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
-      return saveResult; // If saving failed, return the error code
-    }
-    console.log("File saved successfully:", file.fileName);
-    return FILE_ERROR.FILE_SUCCESS;
-  } catch (error) {
-    console.error("Error saving file:", error);
-    return FILE_ERROR.RESP_ERROR;
-  }
+  // try {
+  //   const saveResult = await file.saveFile();
+  //   return saveResult; // If saving failed, return the error code
+  //   if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
+  //   }
+  //   console.log("File saved successfully:", file.fileName);
+  //   return FILE_ERROR.FILE_SUCCESS;
+  // } catch (error) {
+  //   console.error("Error saving file:", error);
+  //   return FILE_ERROR.RESP_ERROR;
+  // }
+
+  return FILE_ERROR.FILE_SUCCESS ; 
 };
 
 

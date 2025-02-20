@@ -8,7 +8,7 @@ import { FILE_ERROR } from "../../lib/types/ErrorTypes" ;
 import type { FileContainer } from "../../lib/models/FileContainer" ; 
 
 const APP_DBG : string = "APP" ;
-const UPLOAD_URL = "http://192.168.1.71:3000/upload" ;  // define this outside of the component
+const UPLOAD_URL = "http://192.168.1.64/upload" ;  // define this outside of the component
 
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">
 
@@ -18,9 +18,6 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
-  const handleConnectionTest = ( file : FileContainer ) => {
-    file.testConnection( "http://192.168.1.64/" ) ; 
-  }
   const handleSelect = async () => {
     try {
       const selectedFile = await openImagePicker();
@@ -40,8 +37,8 @@ export function ProfileScreen({ navigation }: Props) {
     // Write to database
     try {
       setIsUploading(true);
+      const uploadError = fileToUpload.uploadFile( UPLOAD_URL ) ; 
       const writeError  = await writeFile(fileToUpload); 
-      const uploadError = fileToUpload.uploadFile( UPLOAD_URL , setUploadProgress ) ; 
       if ( writeError!= FILE_ERROR.FILE_SUCCESS ) {
         console.error(`${APP_DBG} : File upload failed with error: ${writeError}`);
         console.log( writeError , uploadError ) ; 

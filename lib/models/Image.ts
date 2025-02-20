@@ -83,31 +83,52 @@ class Image extends FileContainer {
   // }
 
 
-  async uploadFile(uploadUrl: string, onProgress?: (progress: UploadProgress) => void): Promise<FILE_ERROR> {
-    try {
-      const formData = this.getFormData();
-      formData.append("file", { uri: this.uri, type: `${this.getFileType()}/${this.extension}`, name: this.fileName });
 
-      return new Promise((resolve) => {
+  async uploadFile(uploadUrl: string, onProgress?: (progress: UploadProgress) => void): Promise<FILE_ERROR> {
+    console.log("Attempting to send file size");
+    const obj = { 
+    fileName  : this.fileName , 
+    fileSize  : this.fileSize , 
+    height    : this.dimensions.height, 
+    width     : this.dimensions.width, 
+    extension : this.extension 
+    }
+
+    return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+
+        xhr.open("POST", uploadUrl);  // POST request to upload URL
+
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        // Progress tracking (optional)
         if (onProgress) {
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              onProgress({ bytesUploaded: event.loaded, totalBytes: event.total, percentage: (event.loaded / event.total) * 100 });
-            }
-          };
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const progress = Math.round((event.loaded / event.total) * 100);
+                    onProgress({ progress });
+                }
+            };
         }
 
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve(FILE_ERROR.FILE_SUCCESS) : resolve(FILE_ERROR.UPLOAD_ERROR));
-        xhr.onerror = () => resolve(FILE_ERROR.NETWORK_ERROR);
-        xhr.open("POST", uploadUrl);
-        xhr.setRequestHeader("Content-Type", "multipart/form-data");
-        xhr.send(formData);
-      });
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      return FILE_ERROR.UPLOAD_ERROR;
-    }
+        // Handle the response
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                console.log(`File size uploaded: ${xhr.responseText}`);
+                resolve(FILE_ERROR.FILE_SUCCESS);  // Success
+            } else {
+                console.error("Error uploading file size:", xhr.status, xhr.responseText);
+                reject(FILE_ERROR.FILE_UPLOAD_FAILED);  // Failure
+            }
+        };
+
+        xhr.onerror = () => {
+            console.error("Network error while uploading file size");
+            reject(FILE_ERROR.FILE_UPLOAD_FAILED);  
+        };
+
+        xhr.send(JSON.stringify(obj));  
+    });
   }
 
   /*
