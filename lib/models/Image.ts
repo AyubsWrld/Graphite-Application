@@ -117,6 +117,14 @@ class Image extends FileContainer {
   * @return    :  
   */
 
+
+  /*
+  * @signature :  
+  * @purpose   :  
+  * @params    :  
+  * @return    :  
+  */
+
   async saveFile(): Promise<FILE_ERROR> {
     try {
       const ImageRepository = AppDataSource.getRepository(ImageTable);

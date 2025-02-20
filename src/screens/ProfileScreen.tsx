@@ -18,13 +18,15 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  const handleConnectionTest = ( file : FileContainer ) => {
+    file.testConnection( "http://192.168.1.64/" ) ; 
+  }
   const handleSelect = async () => {
     try {
       const selectedFile = await openImagePicker();
       if (!selectedFile) {
         throw new Error("Failed to parse image");
       }
-      
       console.log("Successfully selected the file");
       setIsSelected(true);
       setFile(selectedFile);
@@ -59,11 +61,9 @@ export function ProfileScreen({ navigation }: Props) {
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Text>Profile Screen</Text>
       <Button
-      
         title="Go Back"
         onPress={() => navigation.goBack()}
       />
-      
       <Button
         title="Select Image"
         onPress={handleSelect}
