@@ -1,20 +1,33 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import React, { useRef, useCallback } from 'react';
+import { View, Text, Button, StyleSheet } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
-import { AppDataSource } from "../../utils/database/data-source";
-import { User } from "../../utils/database/entities/User";
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
 type Props = NativeStackScreenProps<AppStackParamList, "Login">;
 
 export function LoginScreen({ navigation }: Props) {
+  const bottomSheetRef = useRef<BottomSheet>(null);
+
+  const handleToggleBottomSheet = () => {
+    if (bottomSheetRef.current) {
+      bottomSheetRef.current.expand(); // Open bottom sheet to 60%
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Button 
-        title="Go to Home" 
-        onPress={() => navigation.replace("Home")} 
-      />
+      <Button title="Toggle Bottom Sheet" onPress={handleToggleBottomSheet} />
+      <BottomSheet
+        ref={bottomSheetRef}
+        snapPoints={["60%"]}
+        index={-1} // Initially hidden
+      >
+        <BottomSheetView style={styles.contentContainer}>
+          <Text>Awesome 🎉</Text>
+          <Button title="Close" onPress={() => bottomSheetRef.current?.close()} />
+        </BottomSheetView>
+      </BottomSheet>
     </View>
   );
 }
@@ -22,20 +35,13 @@ export function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'grey',
   },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  input: {
-    height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    borderRadius: 5,
+  contentContainer: {
+    flex: 1,
+    padding: 36,
+    alignItems: 'center',
   },
 });

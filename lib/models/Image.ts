@@ -83,53 +83,84 @@ class Image extends FileContainer {
   // }
 
 
+  async uploadBinary( bytes : number  , uploadUrl : string )  : Promise<FILE_ERROR>{ 
 
-  async uploadFile(uploadUrl: string, onProgress?: (progress: UploadProgress) => void): Promise<FILE_ERROR> {
-    console.log("Attempting to send file size");
-    const obj = { 
-    fileName  : this.fileName , 
-    fileSize  : this.fileSize , 
-    height    : this.dimensions.height, 
-    width     : this.dimensions.width, 
-    extension : this.extension 
-    }
+    // Create new xhr object 
+  
+    const rawData : number = 1234 ; 
+    const xhr = new XMLHttpRequest() ; 
 
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+    return new Promise((resolve , reject) => {
 
-        xhr.open("POST", uploadUrl);  // POST request to upload URL
-
-        xhr.setRequestHeader("Content-Type", "application/json");
-
-        // Progress tracking (optional)
-        if (onProgress) {
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const progress = Math.round((event.loaded / event.total) * 100);
-                    onProgress({ progress });
-                }
-            };
+      xhr.open( "POST" , uploadUrl ) ; 
+      xhr.setRequestHeader("Content-Type" ,`image/${this.extension}`) ; 
+      xhr.onload = () => {
+        if(xhr.status >= 200 && xhr.status < 300){
+          console.log("Success , response : " , xhr.responseText) ; 
+          resolve(FILE_ERROR.FILE_SUCCESS) ; 
         }
+        else{
+          console.error("Reject, response : " , xhr.responseText) ; 
+          reject(FILE_ERROR.FILE_UPLOAD_FAILED) ; 
+        }
+      };
 
-        // Handle the response
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                console.log(`File size uploaded: ${xhr.responseText}`);
-                resolve(FILE_ERROR.FILE_SUCCESS);  // Success
-            } else {
-                console.error("Error uploading file size:", xhr.status, xhr.responseText);
-                reject(FILE_ERROR.FILE_UPLOAD_FAILED);  // Failure
-            }
-        };
-
-        xhr.onerror = () => {
-            console.error("Network error while uploading file size");
-            reject(FILE_ERROR.FILE_UPLOAD_FAILED);  
-        };
-
-        xhr.send(JSON.stringify(obj));  
+      xhr.onerror = () => {
+        console.error("Network error , response : " , xhr.responseText) ; 
+        reject(FILE_ERROR.FILE_UPLOAD_FAILED) ; 
+      } ; 
+      xhr.send(rawData) ; 
     });
   }
+
+  async loadBinaryData(): Promise<FILE_ERROR> {
+    try {
+      const response = await fetch(this.uri);  
+      const buffer = await response.arrayBuffer();  
+      this.binaryData = buffer;  
+      return FILE_ERROR.FILE_SUCCESS;
+    } catch (error) {
+      console.error("Error loading binary data:", error);
+      return FILE_ERROR.RESP_ERROR;
+    }
+  }
+
+async uploadFile(uploadUrl: string): Promise<FILE_ERROR> {
+  console.log("Attempting to upload image as raw binary data");
+
+  if (!this.binaryData) {
+    console.error("No binary data available");
+    return FILE_ERROR.FILE_UPLOAD_FAILED;
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", uploadUrl);
+
+    // Set the appropriate content type (for your image)
+    xhr.setRequestHeader("Content-Type", `image/${this.extension}`);
+
+    // Handle the response
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        console.log("Upload success:", xhr.responseText);
+        resolve(FILE_ERROR.FILE_SUCCESS);
+      } else {
+        console.error("Error uploading binary data:", xhr.status, xhr.responseText);
+        reject(FILE_ERROR.FILE_UPLOAD_FAILED);
+      }
+    };
+
+    xhr.onerror = () => {
+      console.error("Network error while uploading binary data");
+      reject(FILE_ERROR.FILE_UPLOAD_FAILED);
+    };
+
+    // Send the binary data as the body of the request
+    xhr.send(this.binaryData);
+  });
+}
+
 
   /*
   * @signature :  

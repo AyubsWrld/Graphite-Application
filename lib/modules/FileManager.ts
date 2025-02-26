@@ -4,19 +4,18 @@ import { FILE_ERROR } from "../../lib/types/ErrorTypes" ;
 import FileContainer from "../../lib/models/FileContainer" ; 
 import Image from "../../lib/models/Image" ; 
 import Video from "../../lib/models/Video" ; 
+import { AppDataSource } from "../../utils/database/data-source" ;
+import { Image as ImageTable } from "../../utils/database/entities/Image";  
 
 
-/*
- * @signature :  createVideo( @params ) 
- * @purpose   :  uploads file to remote server @ url  . 
- * @params    :  fileName  : Name of file . 
- * @params    :  fileSize  : Size of file in bytes . 
- * @params    :  dimension : tuple object containing ( height : width ) . 
- * @params    :  uri       : uri of video on local device . 
- * @params    :  extension : file extension of the selected video  . 
- * @params    :  duration  : Duration of video in seconds . 
- * @return    :  FileContainer :  Video concrete class 
-*/
+const initializeDatabase = async () => {
+  try {
+    await AppDataSource.initialize();
+    console.log("Data Source has been initialized!");
+  } catch (error) {
+    console.error("Error during Data Source initialization:", error);
+  }
+};
 
 const createVideo = (
   fileName: string,
@@ -72,8 +71,7 @@ const getFileCategory = (value: string): string => {
 export const openImagePicker = async (): Promise<FileContainer> => {
   return new Promise((resolve, reject) => {
     const options = { mediaType: "any", includeBase64: false, maxHeight: 2000, maxWidth: 2000 };
-
-    launchImageLibrary(options, (response) => {
+    launchImageLibrary(options, async (response) => {
       if (response.didCancel) {
         reject(new Error("User Cancelled"));
       } else if (response.error || !response || !response.assets?.[0]) {
@@ -103,11 +101,33 @@ export const openImagePicker = async (): Promise<FileContainer> => {
           );
         }
 
-        resolve(file); 
+        if (file instanceof Image) {
+          const result = await file.loadBinaryData();
+          if (result !== FILE_ERROR.FILE_SUCCESS) {
+            reject(new Error("Failed to load image binary data"));
+          }
+        }
+
+        resolve(file);
       }
     });
   });
 };
+
+
+export const loadImages = async (): Promise<ImageTable[]> => {
+  try {
+    const imageRepository = AppDataSource.getRepository(ImageTable);
+    return await imageRepository.find(); 
+  } catch (error) {
+    console.error("Error loading images from database:", error);
+    return [];
+  }
+};
+
+
+
+
 
 /*
  * @signature :  writeFile( file : FileContainer ) 

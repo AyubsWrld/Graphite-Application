@@ -19,4 +19,5 @@ export class Image{
 
     @Column({ type: "varchar" })
     uri      : string;
+
 }
