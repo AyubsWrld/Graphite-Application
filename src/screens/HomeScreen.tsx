@@ -1,4 +1,4 @@
-import React, { useRef , useState , useEffect , useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,43 +8,75 @@ import {
   Animated,
   Button,
   Easing,
+  Modal,
+  ActivityIndicator,
+  Image as RNImage,
+  Dimensions,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
-import { openImagePicker } from '../../lib/modules/FileManager.ts' ;
-import { useImages } from '../context/ImageContext' ;
-import Image from '../../lib/models/Image'
+import { openImagePicker, writeFile, UploadProgress  , clearDB } from '../../lib/modules/FileManager.ts';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
+import { useImages } from '../context/ImageContext';
+import Image from '../../lib/models/Image';
+import { FileContainer } from '../../lib/models/FileContainer';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { FILE_ERROR } from "../../lib/types/ErrorTypes";
 
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+
+const APP_DBG: string = "APP";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 
 export default function HomeScreen({ navigation }: Props) {
 
+  // const UPLOAD_URL = "http://192.168.1.64/recv";  
+  // const BINARY_UPLOAD_URL = "http://192.168.1.69/binaries";
+  // const FETCH_URL = "http://192.168.1.69/recv";
+
+
+  const UPLOAD_URL = "http://192.168.4.1/recv";  
+  const BINARY_UPLOAD_URL = "http://192.168.4.1/binaries";
+  const FETCH_URL = "http://192.168.4.1/recv";
+
   const { images } = useImages(); 
+  const [ imagesFromRepo , setImagesFromRepo ] = useState(useImages()) ; 
   const [progress, setProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(300));
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState<FileContainer[]>([]);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
-  const [fileProgress, setFileProgress] = useState({});
+  const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [totalFilesToUpload, setTotalFilesToUpload] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState(0);
   const [circularProgress, setCircularProgress] = useState(0);
   const circularProgressAnimation = useRef(new Animated.Value(0)).current;
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
-  // Constants for the circular progress
   const CIRCLE_SIZE = 36;
   const CIRCLE_STROKE_WIDTH = 4;
   const CIRCLE_RADIUS = (CIRCLE_SIZE - CIRCLE_STROKE_WIDTH) / 2;
   const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+
+
+  const handleContinue = () => {
+    setFiles([]) ; 
+    bottomSheetRef.current.close();
+    setIsBottomSheetOpen(false);
+  }
+
   useEffect(() => {
-    // Animate the circular progress
     Animated.timing(circularProgressAnimation, {
       toValue: circularProgress,
       duration: 300,
@@ -53,15 +85,97 @@ export default function HomeScreen({ navigation }: Props) {
     }).start();
   }, [circularProgress]);
 
-  useEffect(() => {
-    console.log("Updated files state:", files);
-  }, [files]);
-  
   const handleToggleBottomSheet = () => {
     if (bottomSheetRef.current) {
       bottomSheetRef.current.expand();
       setIsBottomSheetOpen(true);
     }
+  };
+
+  const handleLoadFiles = async () => {
+    try {
+      const selectedFile = await openImagePicker();
+      if (!selectedFile) {
+        throw new Error("Failed to parse image");
+      }
+      console.log("Successfully selected the file");
+      setFiles((previousFiles) => [...previousFiles, selectedFile]);
+      setTotalFilesToUpload(prev => prev + 1);
+      console.log(`${APP_DBG} : Successfully set file: ${selectedFile}`);
+    } catch (error) {
+      console.error(`${APP_DBG} : Error selecting file:`, error);
+    }
+  }
+  const handleUploadSingleFile = async (fileToUpload: FileContainer) => {
+    try {
+      const fileName = fileToUpload.fileName || 'unknown';
+      console.log("Attempting to write:", fileToUpload.getFileName());
+      setFileProgress(prev => ({...prev, [fileName]: 0}));
+
+      const updateProgress = (progress: UploadProgress) => {
+        const progressPercent = Math.round((progress.loaded / progress.total) * 100);
+        setFileProgress(prev => ({...prev, [fileName]: progressPercent}));
+        
+        const allFiles = Object.values(fileProgress);
+        const totalProgress = [...allFiles, progressPercent].reduce((sum, val) => sum + val, 0);
+        const averageProgress = totalProgress / (allFiles.length + 1);
+        setCircularProgress(averageProgress);
+      };
+
+      if (typeof fileToUpload.setUploadProgressListener === 'function') {
+        fileToUpload.setUploadProgressListener(updateProgress);
+      }
+
+      if (!fileToUpload.binaryData) {
+        await fileToUpload.loadBinaryData();
+      }
+
+      const uploadResult = await fileToUpload.uploadFile(BINARY_UPLOAD_URL);
+      
+      const writeError = await fileToUpload.saveFile();
+      
+      if (writeError !== FILE_ERROR.FILE_SUCCESS) {
+        console.error(`${APP_DBG}: File upload failed with error: ${writeError}`);
+        console.log(writeError, uploadResult.status);
+      } else {
+        console.log(`${APP_DBG}: File wrote & upload successful`);
+        setUploadedFiles(prev => prev + 1);
+        setFileProgress(prev => ({...prev, [fileName]: 100}));
+      }
+      
+      return writeError === FILE_ERROR.FILE_SUCCESS;
+    } catch (error) {
+      console.error(`${APP_DBG}: Error during upload:`, error);
+      return false;
+    }
+  };
+  const handleUpload = async () => {
+    if (!files.length) {
+      console.log(`${APP_DBG} : No files to upload`);
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      for (const file of files) {
+        await handleUploadSingleFile(file);
+      }
+      
+      console.log(`${APP_DBG} : All files processed`);
+    } catch (error) {
+      console.error(`${APP_DBG} : Error during batch upload:`, error);
+    } finally {
+      setIsUploading(false);
+      bottomSheetRef.current.close();
+      setIsBottomSheetOpen(false);
+      setFiles([]) ; 
+    }
+  };
+
+  const handleUploadFiles = async (file: FileContainer) => {
+    console.log("Attempting to save & upload file");
+    await handleUploadSingleFile(file);
   };
 
   const handleCloseBottomSheet = () => {
@@ -71,7 +185,6 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
-  // Backdrop component for the BottomSheet
   const renderBackdrop = useCallback(
     props => (
       <BottomSheetBackdrop
@@ -84,28 +197,7 @@ export default function HomeScreen({ navigation }: Props) {
     []
   );
 
-  const handleLoadFiles = async () => {
-    console.log("Attempting to open the image picker");
-    try {
-      const files_selected = await openImagePicker() ; 
-      if(files_selected){
-        setFiles((prev_files) => [...prev_files , files_selected]) ; 
-        console.log( files_selected  , files ) ;
-        
-        // Set total files to upload
-        setTotalFilesToUpload(prev => prev + 1);
-        
-        // Initialize progress for the new file
-        setTimeout(() => {
-          animateFileProgress(files_selected.fileName);
-        } , 50);
-      }
-    } catch (error) {
-      console.log(error) ; 
-    }
-  }
-
-  const animateFileProgress = (fileName) => {
+  const animateFileProgress = (fileName: string) => {
     setFileProgress(prev => ({
       ...prev,
       [fileName]: 0
@@ -141,16 +233,13 @@ export default function HomeScreen({ navigation }: Props) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleFetch = () => {
-    console.log("File fetched")
-  }
-
-  const truncateString = (str: string, length: number , extension : string ) => {
+  const truncateString = (str: string, length: number, extension: string) => {
     if (str.length > length) {
-      return str.substring(0, length) + '.' + extension ;
+      return str.substring(0, length) + '.' + extension;
     }
     return str;
   };
+
   const closePullUpScreen = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -166,82 +255,175 @@ export default function HomeScreen({ navigation }: Props) {
     ]).start();
   };
 
-  if(!images){
-    return(
-    <View>
+  // Updated handleFetch function to fetch images from the ESP32 server
+  const handleFetch = async (filename: string, extension: string) => {
+    try {
+      console.log(`${APP_DBG} : Fetching file: ${filename}`);
+      setIsImageLoading(true);
+      setImageError(null);
+      setModalVisible(true);
+      
+      // Create the payload
+      const payload = JSON.stringify({
+        filename: `${filename}.${extension}`
+      });
+      
+      const fetchOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: payload
+      };
+      
+      console.log(`${APP_DBG} : Sending request to ${FETCH_URL} with payload:`, payload);
+      
+      // Make the fetch request
+      const response = await fetch(FETCH_URL, fetchOptions);
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      // Convert response to blob
+      const blob = await response.blob();
+      
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        setSelectedImage(base64data);
+        setIsImageLoading(false);
+      };
+      
+    } catch (error) {
+      console.error(`${APP_DBG} : Error fetching image:`, error);
+      setImageError(`Failed to load image: ${error.message}`);
+      setIsImageLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
+    setImageError(null);
+  };
+
+  if (!images) {
+    return (
+      <View>
       </View>
     )
-  }
-  else{
+  } else {
     return (
-    <View style={styles.container}>
-      <View style={styles.infoContainer}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Greetings</Text>
-            <Text style={styles.username}>Ayub</Text>
+      <View style={styles.container}>
+        <View style={styles.infoContainer}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Greetings</Text>
+              <Text style={styles.username}>Ayub</Text>
+            </View>
+            <TouchableOpacity style={styles.addButton} onPress={handleToggleBottomSheet}>
+              <Icon name="add-circle-outline" size={32} color="#4F6EF7" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={handleToggleBottomSheet}>
-            <Icon name="add-circle-outline" size={32} color="#4F6EF7" />
-          </TouchableOpacity>
-        </View>
 
-        {/* Storage Info */}
-        <View style={styles.storageContainer}>
-          <View style={styles.storageInfo}>
-            <Text style={styles.storageLabel}>Used</Text>
-            <Text style={styles.storageAmount}>98.8 GB</Text>
+          {/* Storage Info */}
+          <View style={styles.storageContainer}>
+            <View style={styles.storageInfo}>
+              <Text style={styles.storageLabel}>Used</Text>
+              <Text style={styles.storageAmount}>98.8 GB</Text>
+            </View>
+            <Text style={styles.storageTotal}>of 128 GB</Text>
           </View>
-          <Text style={styles.storageTotal}>of 128 GB</Text>
+          <View style={styles.progressBar}>
+            <View style={styles.progress} />
+          </View>
         </View>
-        <View style={styles.progressBar}>
-          <View style={styles.progress} />
-        </View>
-      </View>
-      <View style={styles.contentContainer}>
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-            <Text style={styles.activeTabText}>Images</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Videos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Files</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.contentContainer}>
+          {/* Tabs */}
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity style={[styles.tab, styles.activeTab]}>
+              <Text style={styles.activeTabText}>Images</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tab}>
+              <Text style={styles.tabText}>Videos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tab}>
+              <Text style={styles.tabText}>Files</Text>
+            </TouchableOpacity>
+          </View>
 
-        <ScrollView style={styles.fileList}>
-
-        {images?.map((image, index) => (
-          <TouchableOpacity key={index} style={styles.fileItem} onPress={() => handleFetch() }>
-            <View style={styles.fileIcon}>
-              <Icon name="document-outline" size={24} color="#4F6EF7" />
+          <ScrollView style={styles.fileList}>
+            {images?.map((image, index) => (
+              <TouchableOpacity 
+                key={index} 
+                style={styles.fileItem} 
+                onPress={() => handleFetch(image.filename, image.extension)}
+              >
+                <View style={styles.fileIcon}>
+                  <Icon name="document-outline" size={24} color="#4F6EF7" />
+                </View>
+                <View style={styles.fileInfo}>
+                  <Text style={styles.filename}>{truncateString(image.filename, 10, image.extension)}</Text>
+                  <Text style={styles.filesize}>7.5 kBs</Text>
+                </View>
+                <View style={styles.fileDetailsContainer}>
+                  <Text style={styles.filePath}>/sdcard/folder</Text>
+                  <Text style={styles.filePercentage}>0.4%</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        
+        {/* Image Preview Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={closeModal}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={closeModal}>
+                <Icon name="close-circle" size={28} color="#4F6EF7" />
+              </TouchableOpacity>
+              
+              {isImageLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#4F6EF7" />
+                  <Text style={styles.loadingText}>Loading image...</Text>
+                </View>
+              ) : imageError ? (
+                <View style={styles.errorContainer}>
+                  <Icon name="alert-circle-outline" size={50} color="#FF6B6B" />
+                  <Text style={styles.errorText}>{imageError}</Text>
+                </View>
+              ) : selectedImage ? (
+                <View style={styles.imageContainer}>
+                  <RNImage
+                    source={{ uri: selectedImage }}
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : null}
             </View>
-            <View style={styles.fileInfo}>
-              <Text style={styles.filename}>{truncateString(image.filename, 10, image.extension)}</Text>
-              <Text style={styles.filesize}>7.5 kBs</Text>
-            </View>
-            <View style={styles.fileDetailsContainer}>
-              <Text style={styles.filePath}>/sdcard/folder</Text>
-              <Text style={styles.filePercentage}>0.4%</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-        </ScrollView>
-      </View>
-      
-      <BottomSheet
-        ref={bottomSheetRef}
-        snapPoints={["60%"]}
-        index={-1}
-        backdropComponent={renderBackdrop}
-        onChange={(index) => {
-          setIsBottomSheetOpen(index !== -1);
-        }}
-      >
-        <BottomSheetView style={styles.SheetContentContainer}>
+          </View>
+        </Modal>
+        
+        <BottomSheet
+          ref={bottomSheetRef}
+          snapPoints={["80%"]}
+          index={-1}
+          backdropComponent={renderBackdrop}
+          onChange={(index) => {
+            setIsBottomSheetOpen(index !== -1);
+          }}
+        >
+          <BottomSheetView style={styles.SheetContentContainer}>
             <View style={styles.SheetHeader}>
               <Text style={styles.SheetHeaderText}>Add files</Text>
               <TouchableOpacity style={styles.addButton} onPress={handleCloseBottomSheet}>
@@ -257,12 +439,10 @@ export default function HomeScreen({ navigation }: Props) {
                       {/* Background Circle */}
                       <View style={styles.circularProgressBackground} />
                       
-                      {/* Animated Circle Progress */}
                       <Animated.View
                         style={[
                           styles.circularProgressBar,
                           {
-                            // Use strokeDashoffset for proper circular animation
                             transform: [
                               {
                                 rotate: circularProgressAnimation.interpolate({
@@ -289,22 +469,21 @@ export default function HomeScreen({ navigation }: Props) {
               )}
             </View>
             <View style={styles.AddButtonContainer}>
-              { files[0]?
-                (
-                  <ScrollView style={styles.fileList}>
-                  {files?.map((image, index) => (
+              {files.length > 0 ? (
+                <ScrollView style={styles.fileList}>
+                  {files?.map((file, index) => (
                     <View key={index}>
-                      <TouchableOpacity style={styles.fileItem} onPress={() => handleFetch() }>
+                      <TouchableOpacity style={styles.fileItem} onPress={() => handleFetch(file.fileName || 'Unnamed', file.extension || 'unknown')}>
                         <View style={styles.fileIcon}>
                           <Icon name="document-outline" size={24} color="#4F6EF7" />
                         </View>
                         <View style={styles.fileInfo}>
-                          <Text style={styles.filename}>{truncateString(image.fileName, 10, image.extension)}</Text>
-                          <Text style={styles.filesize}>7.5 kBs</Text>
+                          <Text style={styles.filename}>{truncateString(file.fileName || 'Unnamed', 10, file.extension || 'unknown')}</Text>
+                          <Text style={styles.filesize}>{file.size ? `${(file.size / 1024).toFixed(1)} kBs` : '0 kBs'}</Text>
                         </View>
                         <View style={styles.fileDetailsContainer}>
-                          <Text style={styles.filePath}>/sdcard/folder</Text>
-                          <Text style={styles.filePercentage}> {`${fileProgress[image.fileName] || 0 }%`}</Text>
+                          <Text style={styles.filePath}>{file.uri ? file.uri.split('/').slice(-2, -1)[0] : '/folder'}</Text>
+                          <Text style={styles.filePercentage}>{`${fileProgress[file.fileName || 'unknown'] || 0}%`}</Text>
                         </View>
                       </TouchableOpacity>
                       <View style={styles.fileProgressBarContainer}>
@@ -312,42 +491,49 @@ export default function HomeScreen({ navigation }: Props) {
                           <View 
                             style={[
                               styles.fileProgress, 
-                              { width: `${fileProgress[image.fileName] || 0}%` }
+                              { width: `${fileProgress[file.fileName || 'unknown'] || 0}%` }
                             ]} 
                           />
                         </View>
                       </View>
                     </View>
                   ))}
-                  </ScrollView>
-                ) : 
-                (
-                  <TouchableOpacity style={styles.SheetFileBox} onPress={ () => handleLoadFiles() }>
-                    <Text style={styles.SheetFileText}>Add files +</Text>
-                  </TouchableOpacity>
-                )
-              }
+                </ScrollView>
+              ) : (
+                <TouchableOpacity style={styles.SheetFileBox} onPress={() => handleLoadFiles()}>
+                  <Text style={styles.SheetFileText}>Add files +</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <TouchableOpacity style={styles.SheetButton}>
-              <Text style={styles.SheetButtonText}>Continue</Text>
+            <TouchableOpacity 
+              style={[
+                styles.SheetButton,
+                isUploading ? { backgroundColor: '#cccccc' } : {}
+              ]} 
+              onPress={handleUpload}
+              disabled={isUploading || files.length === 0}
+            >
+              <Text style={styles.SheetButtonText} onPress={ () => clearDB() }>
+                {isUploading ? 'Uploading...' : 'Continue'}
+              </Text>
             </TouchableOpacity>
-        </BottomSheetView>
-      </BottomSheet>
-    </View>
-  )};
+          </BottomSheetView>
+        </BottomSheet>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal : 8 ,
-    backgroundColor: "#F5F7FA",
+    paddingHorizontal: 8,
     backgroundColor: "#F5F7FA",
   },
   infoContainer: {
-    borderColor : "#E5E7EB" , 
-    borderStyle : "solid",
-    borderWidth : 1 ,
+    borderColor: "#E5E7EB",
+    borderStyle: "solid",
+    borderWidth: 1,
     backgroundColor: "#FFFFFF",
     padding: 20,
     borderBottomLeftRadius: 20,
@@ -356,10 +542,9 @@ const styles = StyleSheet.create({
     paddingTop: 65,
   },
   contentContainer: {
-
-    borderColor : "#E5E7EB" , 
-    borderStyle : "solid",
-    borderWidth : 1 ,
+    borderColor: "#E5E7EB",
+    borderStyle: "solid",
+    borderWidth: 1,
     backgroundColor: "#FFFFFF",
     marginTop: 10,
     padding: 20,
@@ -389,7 +574,6 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   storageContainer: {
-
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -453,21 +637,21 @@ const styles = StyleSheet.create({
   },
   fileItem: {
     flexDirection: "row",
-    alignItems: "flext-start",
+    alignItems: "flex-start",
     paddingVertical: 10,
   },
   fileIcon: {
     marginRight: 16,
-    backgroundColor : "#F9FAFB",
-    alignItems : "center",
-    justifyContent : "center",
-    height : 48 , 
-    width  : 48 ,
-    borderRadius: 8 , 
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 48,
+    width: 48,
+    borderRadius: 8,
   },
   fileInfo: {
     flex: 1,
-    gap : 4 , 
+    gap: 4,
   },
   filename: {
     fontSize: 14,
@@ -478,11 +662,10 @@ const styles = StyleSheet.create({
     fontWeight: "medium",
     color: "#6B7280",
   },
-
   fileDetailsContainer: {
     flexDirection: "column",
     alignItems: "flex-end",
-    gap : 4 , 
+    gap: 4,
   },
   fileDetails: {
     color: "#B0B0B0",
@@ -624,14 +807,14 @@ const styles = StyleSheet.create({
   },
   SheetContentContainer: {
     flex: 1,
-    paddingHorizontal : 20,
-    paddingVertical  : 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     alignItems: 'center',
   },
-  SheetRowOne : {
-    flex : 1 , 
-    flexDirection : "row" , 
-    width : 100 , 
+  SheetRowOne: {
+    flex: 1,
+    flexDirection: "row",
+    width: 100,
   },
   SheetHeader: {
     flexDirection: "row",
@@ -651,28 +834,28 @@ const styles = StyleSheet.create({
   },
   SheetSwitchRow: {
     flexDirection: "row",
-    width : "100%" , 
+    width: "100%",
     alignItems: "center",
     marginBottom: 15,
   },
   SwitchText: {
     marginLeft: 16,
     fontSize: 16,
-    fontWeight: "bold", 
+    fontWeight: "bold",
   },
-  AddButtonContainer : {
+  AddButtonContainer: {
     borderRadius: 8,
     borderColor: "#E5E7EB",
-    borderWidth : 1 , 
-    borderStyle : "solid",
-    width : "100%" ,
+    borderWidth: 1,
+    borderStyle: "solid",
+    width: "100%",
     height: 350,
-    padding: 10 ,
-    marginBottom: 32 , 
+    padding: 10,
+    marginBottom: 32,
   },
   SheetFileBox: {
-    width : "100%" ,
-    height : "100%" , 
+    width: "100%",
+    height: "100%",
     borderRadius: 5,
     justifyContent: "center",
     alignItems: "center",
@@ -681,16 +864,16 @@ const styles = StyleSheet.create({
   },
   SheetFileText: {
     fontSize: 16,
-    fontWeight : "regular" ,
+    fontWeight: "regular",
     color: "#555",
   },
   SheetButton: {
-    width : "100%" , 
-    padding : 16 , 
-    height: 56 , 
+    width: "100%",
+    padding: 16,
+    height: 56,
     alignItems: 'center',
-    justifyContent : 'center',
-    borderRadius: 30 , 
+    justifyContent: 'center',
+    borderRadius: 30,
     backgroundColor: "#007bff",
     paddingVertical: 12,
     alignItems: "center",
@@ -700,4 +883,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-});
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#4F6EF7',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  })

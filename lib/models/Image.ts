@@ -21,6 +21,9 @@ class Image extends FileContainer {
     return this.fileName ; 
   }
 
+  setFileName(name: string) {
+    this.fileName = name; // Use this.fileName instead of this.filename
+  }
   /*
   * @signature :  
   * @purpose   :  
@@ -39,8 +42,7 @@ class Image extends FileContainer {
   * @return    :  
   */
 
-  getDimensions(): Dimension {
-    return this.dimensions;
+  getDimensions(): Dimension { return this.dimensions;
   }
 
   /*
@@ -124,43 +126,51 @@ class Image extends FileContainer {
       return FILE_ERROR.RESP_ERROR;
     }
   }
+  async uploadFile(uploadUrl: string): Promise<{status: FILE_ERROR, filename: string}> {
+    console.log("Attempting to upload image as raw binary data");
 
-async uploadFile(uploadUrl: string): Promise<FILE_ERROR> {
-  console.log("Attempting to upload image as raw binary data");
+    if (!this.binaryData) {
+      console.error("No binary data available");
+      return {status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""};
+    }
 
-  if (!this.binaryData) {
-    console.error("No binary data available");
-    return FILE_ERROR.FILE_UPLOAD_FAILED;
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", uploadUrl);
+
+      xhr.setRequestHeader("Content-Type", `image/${this.extension}`);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response.filename) {
+              this.fileName = response.filename.split(".")[0]; 
+              console.log("Received filename:", this.fileName);
+              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+            } else {
+              console.error("Response doesn't contain filename", xhr.responseText);
+              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+            }
+          } catch (error) {
+            console.error("Error parsing response:", error);
+            resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+          }
+        } else {
+          console.error("Error uploading binary data:", xhr.status, xhr.responseText);
+          reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("Network error while uploading binary data");
+        reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+      };
+
+      // Send the binary data as the body of the request
+      xhr.send(this.binaryData);
+    });
   }
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", uploadUrl);
-
-    // Set the appropriate content type (for your image)
-    xhr.setRequestHeader("Content-Type", `image/${this.extension}`);
-
-    // Handle the response
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        console.log("Upload success:", xhr.responseText);
-        resolve(FILE_ERROR.FILE_SUCCESS);
-      } else {
-        console.error("Error uploading binary data:", xhr.status, xhr.responseText);
-        reject(FILE_ERROR.FILE_UPLOAD_FAILED);
-      }
-    };
-
-    xhr.onerror = () => {
-      console.error("Network error while uploading binary data");
-      reject(FILE_ERROR.FILE_UPLOAD_FAILED);
-    };
-
-    // Send the binary data as the body of the request
-    xhr.send(this.binaryData);
-  });
-}
-
 
   /*
   * @signature :  
@@ -181,6 +191,8 @@ async uploadFile(uploadUrl: string): Promise<FILE_ERROR> {
     try {
       const ImageRepository = AppDataSource.getRepository(ImageTable);
       const imageEntity = new ImageTable();
+      
+      // Use the current fileName which may have been updated by the server
       imageEntity.filename = this.fileName;
       imageEntity.height = this.dimensions.height;
       imageEntity.width = this.dimensions.width;
@@ -188,13 +200,13 @@ async uploadFile(uploadUrl: string): Promise<FILE_ERROR> {
       imageEntity.uri = this.uri;
       imageEntity.abs_path = `/sdcard/${this.fileName}`;
 
-      await ImageRepository.save(imageEntity);  // Save the image entity to the database
+      await ImageRepository.save(imageEntity);  
       return FILE_ERROR.FILE_SUCCESS;
     } catch (error) {
       console.error("Error saving image:", error);
       return FILE_ERROR.RESP_ERROR;
     }
   }
-}
+  }
 
 export default Image;

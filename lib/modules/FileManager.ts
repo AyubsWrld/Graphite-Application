@@ -78,7 +78,7 @@ export const openImagePicker = async (): Promise<FileContainer> => {
         reject(new Error("Invalid response from asset library"));
       } else {
         const metadata = response.assets[0];
-        const fileType = getFileCategory(metadata.type); // Determine file category
+        const fileType = getFileCategory(metadata.type); 
 
         let file: FileContainer;
 
@@ -125,29 +125,30 @@ export const loadImages = async (): Promise<ImageTable[]> => {
   }
 };
 
+export const clearDB = async () => {
+  const imageRepository = AppDataSource.getRepository(ImageTable);
+  await imageRepository.clear() ;
+}
 
 
-
-
-/*
- * @signature :  writeFile( file : FileContainer ) 
+/* @signature :  writeFile( file : FileContainer ) 
  * @purpose   :  Writes file details to local sql db utiilzing the FileContainer objects member variables passed in as a parameter . 
  * @param     :  FileContainer object . 
  * @return    :  FILE_ERROR :  Error code representing whether or not the file writing was successful or not . 
 */
 
 export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
-  // try {
-  //   const saveResult = await file.saveFile();
-  //   return saveResult; // If saving failed, return the error code
-  //   if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
-  //   }
-  //   console.log("File saved successfully:", file.fileName);
-  //   return FILE_ERROR.FILE_SUCCESS;
-  // } catch (error) {
-  //   console.error("Error saving file:", error);
-  //   return FILE_ERROR.RESP_ERROR;
-  // }
+  try {
+    const saveResult = await file.saveFile() ;
+    return saveResult; 
+    if (saveResult !== FILE_ERROR.FILE_SUCCESS) {
+    }
+    console.log("File saved successfully:", file.fileName);
+    return FILE_ERROR.FILE_SUCCESS;
+  } catch (error) {
+    console.error("Error saving file:", error);
+    return FILE_ERROR.RESP_ERROR;
+  }
 
   return FILE_ERROR.FILE_SUCCESS ; 
 };
