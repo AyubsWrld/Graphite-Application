@@ -1,8 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppDataSource } from '../../utils/database/data-source.ts';  
 import { loadImages } from '../../lib/modules/FileManager.ts';  
 
-const ImageContext = createContext<{ images: any; setImages: React.Dispatch<React.SetStateAction<any>> } | undefined>(undefined);
+interface ImageContextType {
+  images: any;
+  setImages: React.Dispatch<React.SetStateAction<any>>;
+  reloadImages: () => Promise<void>; // Function to reload images dynamically
+}
+
+const ImageContext = createContext<ImageContextType | undefined>(undefined);
 
 export const ImageProvider: React.FC = ({ children }) => {
   const [images, setImages] = useState<any | null>(null);
@@ -10,7 +16,6 @@ export const ImageProvider: React.FC = ({ children }) => {
   useEffect(() => {
     const initializeDatabase = async () => {
       try {
-        // Initialize the database
         await AppDataSource.initialize();
         console.log("Data Source has been initialized!");
       } catch (error) {
@@ -20,10 +25,8 @@ export const ImageProvider: React.FC = ({ children }) => {
 
     const initializeImages = async () => {
       try {
-        // Load images after the database is initialized
         const loadedImages = await loadImages();
-        setImages(loadedImages);  // Set images state
-        console.log(loadedImages); // Optionally log the loaded images
+        setImages(loadedImages);
       } catch (error) {
         console.error("Error loading images:", error);
       }
@@ -31,18 +34,27 @@ export const ImageProvider: React.FC = ({ children }) => {
 
     // Initialize the database and then load images
     initializeDatabase().then(() => {
-      initializeImages();  // After DB initialization, load the images
+      initializeImages();
     });
-  }, []); // Empty dependency array ensures this only runs once on mount
+  }, []);
+
+  const reloadImages = useCallback(async () => {
+    try {
+      const updatedImages = await loadImages();
+      setImages(updatedImages);
+      console.log("Images reloaded:", updatedImages);
+    } catch (error) {
+      console.error("Error reloading images:", error);
+    }
+  }, []);
 
   return (
-    <ImageContext.Provider value={{ images, setImages }}>
+    <ImageContext.Provider value={{ images, setImages, reloadImages }}>
       {children}
     </ImageContext.Provider>
   );
 };
 
-// Custom hook to consume the context
 export const useImages = () => {
   const context = useContext(ImageContext);
   if (!context) {
@@ -50,4 +62,3 @@ export const useImages = () => {
   }
   return context;
 };
-

@@ -7,6 +7,7 @@ import {
   ScrollView,
   Animated,
   Button,
+  Image,
   Easing,
   Modal,
   ActivityIndicator,
@@ -14,13 +15,16 @@ import {
   Dimensions,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
+import Add from "../assets/icons/add.png";
+import Cancel from "../assets/icons/cancel.png";
+import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
 import { openImagePicker, writeFile, UploadProgress  , clearDB } from '../../lib/modules/FileManager.ts';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { useImages } from '../context/ImageContext';
-import Image from '../../lib/models/Image';
+import { Image as ImageContainer } from '../../lib/models/Image';
 import { FileContainer } from '../../lib/models/FileContainer';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FILE_ERROR } from "../../lib/types/ErrorTypes";
@@ -42,7 +46,7 @@ export default function HomeScreen({ navigation }: Props) {
   const BINARY_UPLOAD_URL = "http://192.168.4.1/binaries";
   const FETCH_URL = "http://192.168.4.1/recv";
 
-  const { images } = useImages(); 
+  const { images , reloadImages } = useImages(); 
   const [ imagesFromRepo , setImagesFromRepo ] = useState(useImages()) ; 
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -60,6 +64,10 @@ export default function HomeScreen({ navigation }: Props) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  const updateImages = () => {
+    reloadImages() ; 
+  }
 
   const CIRCLE_SIZE = 36;
   const CIRCLE_STROKE_WIDTH = 4;
@@ -325,7 +333,10 @@ export default function HomeScreen({ navigation }: Props) {
               <Text style={styles.username}>Ayub</Text>
             </View>
             <TouchableOpacity style={styles.addButton} onPress={handleToggleBottomSheet}>
-              <Icon name="add-circle-outline" size={32} color="#4F6EF7" />
+              <Image
+                style={styles.tinyLogo}
+                source={Add}
+              />
             </TouchableOpacity>
           </View>
 
@@ -344,8 +355,8 @@ export default function HomeScreen({ navigation }: Props) {
         <View style={styles.contentContainer}>
           {/* Tabs */}
           <View style={styles.tabsContainer}>
-            <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-              <Text style={styles.activeTabText}>Images</Text>
+            <TouchableOpacity style={[styles.tab, styles.activeTab]} onPress={ () => updateImages() }>
+              <Text style={styles.activeTabText} onPres={() => updateImages() }>Images</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.tab}>
               <Text style={styles.tabText}>Videos</Text>
@@ -363,7 +374,10 @@ export default function HomeScreen({ navigation }: Props) {
                 onPress={() => handleFetch(image.filename, image.extension)}
               >
                 <View style={styles.fileIcon}>
-                  <Icon name="document-outline" size={24} color="#4F6EF7" />
+                  <Image
+                    style={styles.tinyLogo}
+                    source={File}
+                  />
                 </View>
                 <View style={styles.fileInfo}>
                   <Text style={styles.filename}>{truncateString(image.filename, 10, image.extension)}</Text>
@@ -388,7 +402,10 @@ export default function HomeScreen({ navigation }: Props) {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <TouchableOpacity style={styles.modalCloseButton} onPress={closeModal}>
-                <Icon name="close-circle" size={28} color="#4F6EF7" />
+                <Image
+                  style={styles.tinyLogo}
+                  source={Cancel}
+                />
               </TouchableOpacity>
               
               {isImageLoading ? (
@@ -427,35 +444,16 @@ export default function HomeScreen({ navigation }: Props) {
             <View style={styles.SheetHeader}>
               <Text style={styles.SheetHeaderText}>Add files</Text>
               <TouchableOpacity style={styles.addButton} onPress={handleCloseBottomSheet}>
-                <Icon name="add-circle-outline" size={32} color="#4F6EF7" />
+                <Image
+                  style={styles.tinyLogo}
+                  source={Cancel}
+                />
               </TouchableOpacity>
             </View>
             <View style={styles.SheetSwitchRow}>
               {/* Circular Progress Indicator without text */}
               {files.length > 0 ? (
                 <View style={styles.uploadStatusContainer}>
-                  <View style={styles.circularProgressContainer}>
-                    <Animated.View style={styles.circularProgress}>
-                      {/* Background Circle */}
-                      <View style={styles.circularProgressBackground} />
-                      
-                      <Animated.View
-                        style={[
-                          styles.circularProgressBar,
-                          {
-                            transform: [
-                              {
-                                rotate: circularProgressAnimation.interpolate({
-                                  inputRange: [0, 100],
-                                  outputRange: ['0deg', '360deg']
-                                })
-                              }
-                            ]
-                          }
-                        ]}
-                      />
-                    </Animated.View>
-                  </View>
                   <Text style={styles.SwitchText}>
                     {uploadedFiles === totalFilesToUpload ? 
                       `${uploadedFiles} file${uploadedFiles !== 1 ? 's' : ''} uploaded` : 
@@ -475,7 +473,10 @@ export default function HomeScreen({ navigation }: Props) {
                     <View key={index}>
                       <TouchableOpacity style={styles.fileItem} onPress={() => handleFetch(file.fileName || 'Unnamed', file.extension || 'unknown')}>
                         <View style={styles.fileIcon}>
-                          <Icon name="document-outline" size={24} color="#4F6EF7" />
+                          <Image
+                            style={styles.tinyLogo}
+                            source={File}
+                          />
                         </View>
                         <View style={styles.fileInfo}>
                           <Text style={styles.filename}>{truncateString(file.fileName || 'Unnamed', 10, file.extension || 'unknown')}</Text>
@@ -849,7 +850,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: "solid",
     width: "100%",
-    height: 350,
+    height: 400,
     padding: 10,
     marginBottom: 32,
   },
@@ -929,5 +930,9 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: 20,
     alignItems: 'center',
+  },
+  tinyLogo: {
+    width: 24,
+    height: 24,
   },
   })
