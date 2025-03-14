@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { testFunction , addUser , findUser } from "../../lib/modules/UserManager.ts";
-
+import { USER_ERROR , addUser , validateLoginRequest } from "../../lib/modules/UserManager.ts";
 import {
   View,
   Text,
@@ -39,24 +38,16 @@ export function LoginScreen({ navigation }: Props) {
 
 
   const pollDatabase = async ( email : string , password : string ) => { 
-    console.log('Attempting to find ${email} : ${password}')
-    const userExists : bool = await findUser( email , password ) ;  
-    if (!userExists) {
-      console.log("User does not exist") ; // error handle here 
+    console.log("pollDatabase evoked");
+    const res = await validateLoginRequest( email , password ) ; 
+    if( res == USER_ERROR.USER_OK )
+    {
+      console.log("Navigating to startup");
     }else{
-      console.log(" Navigating to front page") ;
+      console.log("User not found");
+      console.log(res);
     }
   }
-
-  // const makeUser = async ( aEmail : string , aPassword : string , aFirstname : string , aLastname : string ) =>{
-  //   adduser( aEmail , aPassword , aFirstname , aLastname );
-  // }
-
-  const makeUser = async () =>{
-    testFunction();
-    adduser( "ayubmohamed@gmail.com" , "testuser123" , "Ayub", "Mohamed" );
-  }
-
 
   const validatePassword = () => {
     if (!password) {
@@ -124,9 +115,18 @@ export function LoginScreen({ navigation }: Props) {
             ? styles.active
             : styles.disabled,
         ]}
-        onPress={() => makeUser() }
+        onPress={() => pollDatabase( email , password ) }
         disabled={!email || !password || !!emailError || !!passwordError}>
         <Text style={styles.buttonText}>Continue</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.continueButton}
+        onPress={ () => addUser("a.moahmed17@gmail.com" , "testuser123" , "Ayub" , "Mohamed")}
+      >
+        <Text>
+          Add test user
+        </Text>
       </TouchableOpacity>
 
       <View style={styles.footerContainer}>

@@ -1,23 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, Column , PrimaryColumn } from "typeorm";
+import { Entity, Column, PrimaryColumn } from "typeorm";
 
 @Entity()
-export class Image{
-    @PrimaryColumn( { type : "varchar"} )
-    abs_path  : string ;
+export class Image {
+    @PrimaryColumn({ type: "text" })
+    abs_path: string;
 
-    @Column({ type: "varchar" })
-    filename  : string;
+    @Column({ type: "text" })
+    filename: string;
 
-    @Column({ type: "smallint" })
-    height    : number;
+    @Column({ type: "integer" })
+    height: number;
 
-    @Column({ type: "smallint" })
-    width     : number;
+    @Column({ type: "integer" })
+    width: number;
 
-    @Column({ type: "varchar" })
-    extension : string;
+    @Column({ type: "text" })
+    extension: string;
 
-    @Column({ type: "varchar" })
-    uri      : string;
-
+    @Column({ type: "text" })
+    uri: string;
 }
