@@ -6,6 +6,7 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Alert
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -40,13 +41,7 @@ export function LoginScreen({ navigation }: Props) {
   const pollDatabase = async ( email : string , password : string ) => { 
     console.log("pollDatabase evoked");
     const res = await validateLoginRequest( email , password ) ; 
-    if( res == USER_ERROR.USER_OK )
-    {
-      console.log("Navigating to startup");
-    }else{
-      console.log("User not found");
-      console.log(res);
-    }
+    res == USER_ERROR.USER_OK ? navigation.navigate("Home") : Alert.alert(`Incorrect email or password\nPlease try again`) ;
   }
 
   const validatePassword = () => {
@@ -120,14 +115,14 @@ export function LoginScreen({ navigation }: Props) {
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.continueButton}
-        onPress={ () => addUser("a.moahmed17@gmail.com" , "testuser123" , "Ayub" , "Mohamed")}
-      >
-        <Text>
-          Add test user
-        </Text>
-      </TouchableOpacity>
+      {/* <TouchableOpacity */}
+      {/*   style={styles.continueButton} */}
+      {/*   onPress={ () => addUser("a.moahmed17@gmail.com" , "testuser123" , "Ayub" , "Mohamed")} */}
+      {/* > */}
+      {/*   <Text> */}
+      {/*     Add test user */}
+      {/*   </Text> */}
+      {/* </TouchableOpacity> */}
 
       <View style={styles.footerContainer}>
         <Text style={styles.footerText}>Don’t have an account?</Text>
