@@ -10,11 +10,6 @@ export enum USER_ERROR {
 }
 
 
-/*
- * @signature : addUser( aEmail : string , aPassword : string , aFirstname : string , aLastname : string ) ;
- * @purpose   : creates a connection with database 
- * @return    : USER_ERROR : USER_OK if adding user worked , otherwise a different err code . 
-*/ 
 
 // I want to throw error here . 
 
@@ -71,7 +66,11 @@ export const addUser = async ( aEmail : string , aPassword : string , aFirstname
       return USER_ERROR.USER_CREATION_FAILURE ;
     }
     await initializeDB() ; 
-    const dUser = AppDataSource.getRepository(User) ; 
+    const dUser = AppDataSource.getRepository(User) ;  // Haven't tested this 
+    if ( await dUser.findOneBy({ email : aEmail}) ) {
+      console.log("Attempting to overwrite email") ;
+      return USER_ERROR.USER_EXISTS ;
+    }
     await dUser.save(user) ; 
     console.log("User addition successful") ;
     return USER_ERROR.USER_OK ; 

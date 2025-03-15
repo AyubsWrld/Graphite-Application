@@ -35,13 +35,13 @@ const APP_DBG: string = "APP";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 
-export default function HomeScreen({ navigation }: Props) {
+export default function HomeScreen({ route , navigation }: Props) {
 
   // const UPLOAD_URL = "http://192.168.1.64/recv";  
   // const BINARY_UPLOAD_URL = "http://192.168.1.69/binaries";
   // const FETCH_URL = "http://192.168.1.69/recv";
 
-
+  const { firstname , email } = route.params ;
   const UPLOAD_URL = "http://192.168.4.1/recv";  
   const BINARY_UPLOAD_URL = "http://192.168.4.1/binaries";
   const FETCH_URL = "http://192.168.4.1/recv";
