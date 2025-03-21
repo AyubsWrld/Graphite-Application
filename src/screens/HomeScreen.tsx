@@ -21,11 +21,12 @@ import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
-import { openImagePicker, writeFile, UploadProgress  , clearDB } from '../../lib/modules/FileManager.ts';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
+import { openDocumentPicker, writeFile, clearDB } from '../../lib/modules/FileManager.ts';
+import { UploadProgress } from "../../lib/types/FileTypes";
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useImages } from '../context/ImageContext';
 import { Image as ImageContainer } from '../../lib/models/Image';
-import { FileContainer } from '../../lib/models/FileContainer';
+import FileContainer from '../../lib/models/FileContainer';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FILE_ERROR } from "../../lib/types/ErrorTypes";
 
@@ -35,19 +36,19 @@ const APP_DBG: string = "APP";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 
-export default function HomeScreen({ route , navigation }: Props) {
+export default function HomeScreen({ route, navigation }: Props) {
 
   // const UPLOAD_URL = "http://192.168.1.64/recv";  
   // const BINARY_UPLOAD_URL = "http://192.168.1.69/binaries";
   // const FETCH_URL = "http://192.168.1.69/recv";
 
-  const { firstname , email } = route.params ;
+  const { firstname, email } = route.params;
   const UPLOAD_URL = "http://192.168.4.1/recv";  
   const BINARY_UPLOAD_URL = "http://192.168.4.1/binaries";
   const FETCH_URL = "http://192.168.4.1/recv";
 
-  const { images , reloadImages } = useImages(); 
-  const [ imagesFromRepo , setImagesFromRepo ] = useState(useImages()) ; 
+  const { images, reloadImages } = useImages(); 
+  const [ imagesFromRepo, setImagesFromRepo ] = useState(useImages()); 
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -64,9 +65,10 @@ export default function HomeScreen({ route , navigation }: Props) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("images");
 
   const updateImages = () => {
-    reloadImages() ; 
+    reloadImages(); 
   }
 
   const CIRCLE_SIZE = 36;
@@ -77,9 +79,8 @@ export default function HomeScreen({ route , navigation }: Props) {
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
 
-
   const handleContinue = () => {
-    setFiles([]) ; 
+    setFiles([]); 
     bottomSheetRef.current.close();
     setIsBottomSheetOpen(false);
   }
@@ -102,9 +103,9 @@ export default function HomeScreen({ route , navigation }: Props) {
 
   const handleLoadFiles = async () => {
     try {
-      const selectedFile = await openImagePicker();
+      const selectedFile = await openDocumentPicker();
       if (!selectedFile) {
-        throw new Error("Failed to parse image");
+        throw new Error("Failed to parse file");
       }
       console.log("Successfully selected the file");
       setFiles((previousFiles) => [...previousFiles, selectedFile]);
@@ -114,6 +115,7 @@ export default function HomeScreen({ route , navigation }: Props) {
       console.error(`${APP_DBG} : Error selecting file:`, error);
     }
   }
+
   const handleUploadSingleFile = async (fileToUpload: FileContainer) => {
     try {
       const fileName = fileToUpload.fileName || 'unknown';
@@ -157,6 +159,7 @@ export default function HomeScreen({ route , navigation }: Props) {
       return false;
     }
   };
+
   const handleUpload = async () => {
     if (!files.length) {
       console.log(`${APP_DBG} : No files to upload`);
@@ -171,13 +174,14 @@ export default function HomeScreen({ route , navigation }: Props) {
       }
       
       console.log(`${APP_DBG} : All files processed`);
+      updateImages(); // Reload images after upload completes
     } catch (error) {
       console.error(`${APP_DBG} : Error during batch upload:`, error);
     } finally {
       setIsUploading(false);
       bottomSheetRef.current.close();
       setIsBottomSheetOpen(false);
-      setFiles([]) ; 
+      setFiles([]); 
     }
   };
 
@@ -263,7 +267,6 @@ export default function HomeScreen({ route , navigation }: Props) {
     ]).start();
   };
 
-  // Updated handleFetch function to fetch images from the ESP32 server
   const handleFetch = async (filename: string, extension: string) => {
     try {
       console.log(`${APP_DBG} : Fetching file: ${filename}`);
@@ -318,11 +321,20 @@ export default function HomeScreen({ route , navigation }: Props) {
     setImageError(null);
   };
 
+  const handleTabPress = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "images") {
+      updateImages();
+    }
+  };
+
   if (!images) {
     return (
-      <View>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4F6EF7" />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
-    )
+    );
   } else {
     return (
       <View style={styles.container}>
@@ -330,7 +342,7 @@ export default function HomeScreen({ route , navigation }: Props) {
           <View style={styles.header}>
             <View>
               <Text style={styles.greeting}>Greetings</Text>
-              <Text style={styles.username}>Ayub</Text>
+              <Text style={styles.username}>{firstname || "User"}</Text>
             </View>
             <TouchableOpacity style={styles.addButton} onPress={handleToggleBottomSheet}>
               <Image
@@ -355,14 +367,23 @@ export default function HomeScreen({ route , navigation }: Props) {
         <View style={styles.contentContainer}>
           {/* Tabs */}
           <View style={styles.tabsContainer}>
-            <TouchableOpacity style={[styles.tab, styles.activeTab]} onPress={ () => updateImages() }>
-              <Text style={styles.activeTabText} onPres={() => updateImages() }>Images</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === "images" && styles.activeTab]} 
+              onPress={() => handleTabPress("images")}
+            >
+              <Text style={activeTab === "images" ? styles.activeTabText : styles.tabText}>Images</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.tab}>
-              <Text style={styles.tabText}>Videos</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === "videos" && styles.activeTab]}
+              onPress={() => handleTabPress("videos")}
+            >
+              <Text style={activeTab === "videos" ? styles.activeTabText : styles.tabText}>Videos</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.tab}>
-              <Text style={styles.tabText}>Files</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === "files" && styles.activeTab]}
+              onPress={() => handleTabPress("files")}
+            >
+              <Text style={activeTab === "files" ? styles.activeTabText : styles.tabText}>Files</Text>
             </TouchableOpacity>
           </View>
 
@@ -411,7 +432,7 @@ export default function HomeScreen({ route , navigation }: Props) {
               {isImageLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#4F6EF7" />
-                  <Text style={styles.loadingText}>Loading image...</Text>
+                  <Text style={styles.loadingText}>Loading file...</Text>
                 </View>
               ) : imageError ? (
                 <View style={styles.errorContainer}>
@@ -471,7 +492,10 @@ export default function HomeScreen({ route , navigation }: Props) {
                 <ScrollView style={styles.fileList}>
                   {files?.map((file, index) => (
                     <View key={index}>
-                      <TouchableOpacity style={styles.fileItem} onPress={() => handleFetch(file.fileName || 'Unnamed', file.extension || 'unknown')}>
+                      <TouchableOpacity 
+                        style={styles.fileItem} 
+                        onPress={() => handleFetch(file.fileName || 'Unnamed', file.extension || 'unknown')}
+                      >
                         <View style={styles.fileIcon}>
                           <Image
                             style={styles.tinyLogo}
@@ -514,7 +538,7 @@ export default function HomeScreen({ route , navigation }: Props) {
               onPress={handleUpload}
               disabled={isUploading || files.length === 0}
             >
-              <Text style={styles.SheetButtonText} onPress={ () => clearDB() }>
+              <Text style={styles.SheetButtonText}>
                 {isUploading ? 'Uploading...' : 'Continue'}
               </Text>
             </TouchableOpacity>
@@ -524,7 +548,6 @@ export default function HomeScreen({ route , navigation }: Props) {
     );
   }
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
