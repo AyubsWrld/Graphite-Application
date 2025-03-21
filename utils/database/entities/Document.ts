@@ -1,23 +1,33 @@
-import { Entity, PrimaryGeneratedColumn, Column , PrimaryColumn } from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
-export class Document{
-    @PrimaryColumn( { type : "varchar"} )
-    abs_path  : string ;
+export class Document {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ type: "varchar" })
-    filename  : string;
+  @Column()
+  filename: string;
 
-    @Column({ type: "smallint" })
-    height    : number;
+  @Column()
+  extension: string;
 
-    @Column({ type: "smallint" })
-    width     : number;
+  @Column()
+  uri: string;
 
-    @Column({ type: "varchar" })
-    extension : string;
+  @Column()
+  abs_path: string;
 
-    @Column({ type: "varchar" })
-    uri      : string;
+  @Column()
+  size: number;
 
+  @Column({ nullable: true })
+  created_at: Date;
+
+  @Column({ nullable: true })
+  updated_at: Date;
+
+  constructor() {
+    this.created_at = new Date();
+    this.updated_at = new Date();
+  }
 }
