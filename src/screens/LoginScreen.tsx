@@ -41,7 +41,8 @@ export function LoginScreen({ navigation }: Props) {
   const pollDatabase = async ( email : string , password : string ) => { 
     console.log("pollDatabase evoked");
     const res = await validateLoginRequest( email , password ) ; 
-    res == USER_ERROR.USER_OK ? navigation.navigate("Home") : Alert.alert(`Incorrect email or password\nPlease try again`) ;
+    console.log(res) ;
+    res != null ? navigation.navigate("Home" , { firstname : res.firstname , res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
   }
 
   const validatePassword = () => {

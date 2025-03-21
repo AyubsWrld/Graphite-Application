@@ -96,7 +96,7 @@ const userExists  = async ( aEmail : string  , dUser) : string | null  => {
     if (res == null) {
       return null ; 
     }else { 
-      return res.password ; 
+      return res; 
     }
   } catch (error) {
     console.log(`Error occured : ${error}`);
@@ -111,22 +111,22 @@ const userExists  = async ( aEmail : string  , dUser) : string | null  => {
  * @return    : USER_ERROR : USER_OK if adding user worked , otherwise a different err code . 
 */ 
 
-export const validateLoginRequest = async ( aEmail : string , aPassword : string ) : USER_ERROR => { 
+export const validateLoginRequest = async ( aEmail : string , aPassword : string ) : null | User => { 
   try {
     if (!AppDataSource.isInitialized) {
       await AppDataSource.initialize() 
     }
     const dUser = await AppDataSource.getRepository(User) ;
-    const user_password = await userExists( aEmail , dUser  ) 
-    if( user_password != null ){
+    const res = await userExists( aEmail , dUser  ) 
+    if( res != null ){
       console.log(user_password) ;
-      return user_password == aPassword ? USER_ERROR.USER_OK : USER_ERROR.USER_NOT_FOUND ;
+      return res.password == aPassword ? res : null ;
     }else{
       console.log("User not found") ;
-      return USER_ERROR.USER_NOT_FOUND ; 
+      return null ;
     }
   } catch (error) {
     console.log(`Error occured : ${error}`);
-    return USER_ERROR.USER_REPOSITORY_LOADING_ERROR ;
+    return null ;
   }
 }
