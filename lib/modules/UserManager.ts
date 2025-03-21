@@ -94,6 +94,7 @@ const userExists  = async ( aEmail : string  , dUser) : string | null  => {
       email : aEmail,
     })
     if (res == null) {
+
       return null ; 
     }else { 
       return res; 
@@ -119,7 +120,7 @@ export const validateLoginRequest = async ( aEmail : string , aPassword : string
     const dUser = await AppDataSource.getRepository(User) ;
     const res = await userExists( aEmail , dUser  ) 
     if( res != null ){
-      console.log(user_password) ;
+      console.log(res) ;
       return res.password == aPassword ? res : null ;
     }else{
       console.log("User not found") ;
