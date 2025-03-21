@@ -1,11 +1,14 @@
-import { launchImageLibrary } from "react-native-image-picker";
+import { DocumentPickerResponse, DocumentPickerOptions, types } from 'react-native-document-picker';
+import * as DocumentPicker from 'react-native-document-picker';
 import { UploadProgress, Dimension } from "../../lib/types/FileTypes"; 
 import { FILE_ERROR } from "../../lib/types/ErrorTypes"; 
 import FileContainer from "../../lib/models/FileContainer"; 
 import Image from "../../lib/models/Image"; 
 import Video from "../../lib/models/Video"; 
+import Document from "../../lib/models/Document"; // You'll need to create this model
 import { AppDataSource } from "../../utils/database/data-source";
-import { Image as ImageTable } from "../../utils/database/entities/Image";  
+import { Image as ImageTable } from "../../utils/database/entities/Image";
+import { Document as DocumentTable } from "../../utils/database/entities/Document"; // You'll need to create this entity
 
 const initializeDatabase = async () => {
   try {
@@ -39,58 +42,100 @@ const createImage = (
   return new Image(fileName, fileSize, dimensions, uri, extension);
 };
 
-const getFileCategory = (value: string): string => {
-  return value.split("/")[0];
+const createDocument = (
+  fileName: string,
+  fileSize: number,
+  uri: string,
+  extension: string
+): FileContainer => {
+  // Assuming Document class extends FileContainer
+  return new Document(fileName, fileSize, uri, extension);
 };
 
-export const openImagePicker = async (): Promise<FileContainer> => {
+const getFileCategory = (type: string | null): string => {
+  if (!type) return "unknown";
+  
+  if (type.startsWith("image/")) {
+    return "image";
+  } else if (type.startsWith("video/")) {
+    return "video";
+  } else {
+    return "document";
+  }
+};
+
+const getFileExtension = (fileName: string, type: string | null): string => {
+  if (fileName && fileName.includes('.')) {
+    return fileName.split('.').pop() || "";
+  }
+  
+  if (type) {
+    return type.split('/')[1] || "";
+  }
+  
+  return "";
+};
+
+export const openDocumentPicker = async (): Promise<FileContainer> => {
   // Ensure the database is initialized before proceeding
   await initializeDatabase();
   
-  return new Promise((resolve, reject) => {
-    const options = { mediaType: "any", includeBase64: false, maxHeight: 2000, maxWidth: 2000 };
-    launchImageLibrary(options, async (response) => {
-      if (response.didCancel) {
-        reject(new Error("User Cancelled"));
-      } else if (response.error || !response || !response.assets?.[0]) {
-        reject(new Error("Invalid response from asset library"));
-      } else {
-        const metadata = response.assets[0];
-        const fileType = getFileCategory(metadata.type || ""); 
-
-        let file: FileContainer;
-
-        if (fileType === "video") {
-          file = createVideo(
-            metadata.fileName || "video",
-            metadata.fileSize || 0,
-            { width: metadata.width || 0, height: metadata.height || 0 },
-            metadata.uri || "",
-            (metadata.type || "").split("/")[1] || "mp4",
-            metadata.duration || 0
-          );
-        } else {
-          file = createImage(
-            metadata.fileName || "image",
-            metadata.fileSize || 0,
-            { width: metadata.width || 0, height: metadata.height || 0 },
-            metadata.uri || "",
-            (metadata.type || "").split("/")[1] || "jpg"
-          );
-        }
-
-        if (file instanceof Image) {
-          const result = await file.loadBinaryData();
-          if (result !== FILE_ERROR.FILE_SUCCESS) {
-            reject(new Error("Failed to load image binary data"));
-            return;
-          }
-        }
-
-        resolve(file);
-      }
+  try {
+    const results = await DocumentPicker.pickSingle({
+      type: [DocumentPicker.types.allFiles],
+      copyTo: 'documentDirectory',
     });
-  });
+    
+    const fileType = getFileCategory(results.type);
+    const extension = getFileExtension(results.name || "", results.type);
+    
+    let file: FileContainer;
+    
+    if (fileType === "image") {
+      // For images, you might need to get dimensions
+      file = createImage(
+        results.name || "image",
+        results.size || 0,
+        { width: 0, height: 0 }, // You may need to use a library like react-native-image-size to get actual dimensions
+        results.fileCopyUri || results.uri,
+        extension
+      );
+      
+      if (file instanceof Image) {
+        const result = await file.loadBinaryData();
+        if (result !== FILE_ERROR.FILE_SUCCESS) {
+          throw new Error("Failed to load image binary data");
+        }
+        
+        // You might want to update dimensions here after loading
+      }
+    } else if (fileType === "video") {
+      file = createVideo(
+        results.name || "video",
+        results.size || 0,
+        { width: 0, height: 0 }, // Would need additional processing to get video dimensions
+        results.fileCopyUri || results.uri,
+        extension,
+        0 // Would need additional processing to get video duration
+      );
+    } else {
+      // For any other document type
+      file = createDocument(
+        results.name || "document",
+        results.size || 0,
+        results.fileCopyUri || results.uri,
+        extension
+      );
+    }
+    
+    return file;
+  } catch (err) {
+    if (DocumentPicker.isCancel(err)) {
+      throw new Error("User Cancelled");
+    } else {
+      throw new Error(`Error picking document: ${err.message}`);
+    }
+  }
 };
 
 export const loadImages = async (): Promise<ImageTable[]> => {
@@ -106,6 +151,20 @@ export const loadImages = async (): Promise<ImageTable[]> => {
   }
 };
 
+// Add function to load documents if needed
+export const loadDocuments = async (): Promise<DocumentTable[]> => {
+  // Ensure the database is initialized
+  await initializeDatabase();
+  
+  try {
+    const documentRepository = AppDataSource.getRepository(DocumentTable);
+    return await documentRepository.find(); 
+  } catch (error) {
+    console.error("Error loading documents from database:", error);
+    return [];
+  }
+};
+
 export const clearDB = async () => {
   // Ensure the database is initialized
   await initializeDatabase();
@@ -113,6 +172,11 @@ export const clearDB = async () => {
   try {
     const imageRepository = AppDataSource.getRepository(ImageTable);
     await imageRepository.clear();
+    
+    // If you have a document repository
+    const documentRepository = AppDataSource.getRepository(DocumentTable);
+    await documentRepository.clear();
+    
     console.log("Database cleared successfully");
   } catch (error) {
     console.error("Error clearing database:", error);
