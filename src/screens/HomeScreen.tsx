@@ -38,14 +38,9 @@ type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 
 export default function HomeScreen({ route, navigation }: Props) {
 
-  // const UPLOAD_URL = "http://192.168.1.64/recv";  
-  // const BINARY_UPLOAD_URL = "http://192.168.1.69/binaries";
-  // const FETCH_URL = "http://192.168.1.69/recv";
 
   const { firstname, email } = route.params;
-  const UPLOAD_URL = "http://192.168.4.1/recv";  
-  const BINARY_UPLOAD_URL = "http://192.168.4.1/binaries";
-  const FETCH_URL = "http://192.168.4.1/recv";
+  const BINARY_UPLOAD_URL = "192.168.1.83";
 
   const { images, reloadImages } = useImages(); 
   const [ imagesFromRepo, setImagesFromRepo ] = useState(useImages()); 
@@ -141,7 +136,6 @@ export default function HomeScreen({ route, navigation }: Props) {
       }
 
       const uploadResult = await fileToUpload.uploadFile(BINARY_UPLOAD_URL);
-      
       const writeError = await fileToUpload.saveFile();
       
       if (writeError !== FILE_ERROR.FILE_SUCCESS) {

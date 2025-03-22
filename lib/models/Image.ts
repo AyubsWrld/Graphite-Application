@@ -3,6 +3,7 @@ import { Dimension } from "../types/FileTypes";
 import { FILE_ERROR } from "../types/ErrorTypes";
 import { AppDataSource } from "../../utils/database/data-source";  // Corrected import
 import { Image as ImageTable } from "../../utils/database/entities/Image";  // Corrected to Image entity
+import TcpSocket from 'react-native-tcp-socket';
 
 class Image extends FileContainer {
   constructor(fileName: string, fileSize: number, dimensions: Dimension, uri: string, extension: string) {
@@ -84,92 +85,97 @@ class Image extends FileContainer {
   //   return FILE_ERROR.FILE_SUCCESS ; 
   // }
 
+  async uploadFile(serverIP: string, serverPort: number = 5000): Promise<{status: FILE_ERROR, filename: string}> {
+      console.log(`Attempting to upload document to ESP32 at ${serverIP}:${serverPort}`);
 
-  async uploadBinary( bytes : number  , uploadUrl : string )  : Promise<FILE_ERROR>{ 
+      if (!this.binaryData) {
+          console.error("No binary data available");
+          return {status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""};
+      }
 
-    // Create new xhr object 
-  
-    const rawData : number = 1234 ; 
-    const xhr = new XMLHttpRequest() ; 
+      return new Promise((resolve, reject) => {
+          const client = TcpSocket.createConnection({
+              host: serverIP,
+              port: serverPort,
+              tls: false
+          }, () => {
+              console.log('Connected to ESP32 server');
+              
+              // First send filename to the server
+	  
+	      var fname ; 
+	      if( this.fileName.length >= 10 ){ fname = this.fileName.substring(0 , 10) + "." + this.extension ; }else{fname = this.fileName} 
+	      console.log("Attempting to write filenmae : " , fname ) ; 
+	      console.log("Spliced : " , this.fileName.substring( 0 , 10 )); 
+	      console.log("Length : " , this.fileName.length) ; 
+              client.write( fname );
+              
+              // Set up data handler for all responses
+              client.on('data', (data) => {
+                  const response = data.toString('utf8');
+                  console.log('Response from server:', response);
+                  
+                  if (response.includes('Filename received successfully')) {
+                      console.log('Sending write command to ESP32');
+                      client.write('write');
+                  } 
+                  else if (response === 'OK') {
+                      // Send the actual file data throws here 
+                      console.log('Sending file data: ' , this.binaryData);
+		      console.log("Socket status: " , client.destroyed);
+                      const fileBuffer = Buffer.from(this.binaryData);
+                      client.write(fileBuffer);
+                      
+                      // Don't end the connection yet - wait for upload confirmation
+                      // We'll add a timeout instead
+                  } 
+                  else if (response === 'UPLOAD_COMPLETE') {
+                      // Only close the connection after success confirmation
+                      client.end();
+                      resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+                  }
+                  else {
+                      console.error('Unexpected server response:', response);
+                      client.destroy();
+                      reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+                  }
+              });
+          });
 
-    return new Promise((resolve , reject) => {
+          setTimeout(() => {
+              if (client.destroyed === false) {
+                  console.error('Upload timed out');
+                  client.destroy();
+                  reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+              }
+          }, 30000); 
 
-      xhr.open( "POST" , uploadUrl ) ; 
-      xhr.setRequestHeader("Content-Type" ,`image/${this.extension}`) ; 
-      xhr.onload = () => {
-        if(xhr.status >= 200 && xhr.status < 300){
-          console.log("Success , response : " , xhr.responseText) ; 
-          resolve(FILE_ERROR.FILE_SUCCESS) ; 
-        }
-        else{
-          console.error("Reject, response : " , xhr.responseText) ; 
-          reject(FILE_ERROR.FILE_UPLOAD_FAILED) ; 
-        }
-      };
-
-      xhr.onerror = () => {
-        console.error("Network error , response : " , xhr.responseText) ; 
-        reject(FILE_ERROR.FILE_UPLOAD_FAILED) ; 
-      } ; 
-      xhr.send(rawData) ; 
-    });
+          client.on('error', (error) => {
+              console.error('TCP socket error:', error);
+              reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+          });
+          
+          client.on('close', (hasError) => {
+              if (hasError) {
+                  console.error('Connection closed with error');
+                  reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+              }
+          });
+      });
   }
 
   async loadBinaryData(): Promise<FILE_ERROR> {
     try {
       const response = await fetch(this.uri);  
       const buffer = await response.arrayBuffer();  
+      console.log("Buffer len" , buffer.byteLength); 
       this.binaryData = buffer;  
+      console.log("Successfully loaded binary data, length:");
       return FILE_ERROR.FILE_SUCCESS;
     } catch (error) {
       console.error("Error loading binary data:", error);
       return FILE_ERROR.RESP_ERROR;
     }
-  }
-  async uploadFile(uploadUrl: string): Promise<{status: FILE_ERROR, filename: string}> {
-    console.log("Attempting to upload image as raw binary data");
-
-    if (!this.binaryData) {
-      console.error("No binary data available");
-      return {status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""};
-    }
-
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", uploadUrl);
-
-      xhr.setRequestHeader("Content-Type", `image/${this.extension}`);
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            if (response.filename) {
-              this.fileName = response.filename.split(".")[0]; 
-              console.log("Received filename:", this.fileName);
-              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
-            } else {
-              console.error("Response doesn't contain filename", xhr.responseText);
-              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
-            }
-          } catch (error) {
-            console.error("Error parsing response:", error);
-            resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
-          }
-        } else {
-          console.error("Error uploading binary data:", xhr.status, xhr.responseText);
-          reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
-        }
-      };
-
-      xhr.onerror = () => {
-        console.error("Network error while uploading binary data");
-        reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
-      };
-
-      // Send the binary data as the body of the request
-      xhr.send(this.binaryData);
-    });
   }
 
   /*

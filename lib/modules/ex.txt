@@ -143,6 +143,7 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
   await initializeDatabase();
   
   try {
+    // First, load the binary data if not already loaded
     if (!file.binaryData) {
       const loadResult = await file.loadBinaryData();
       if (loadResult !== FILE_ERROR.FILE_SUCCESS) {

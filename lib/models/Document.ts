@@ -3,6 +3,7 @@ import { Dimension } from "../types/FileTypes";
 import { FILE_ERROR } from "../types/ErrorTypes";
 import { AppDataSource } from "../../utils/database/data-source";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
+import TcpSocket from 'react-native-tcp-socket';
 
 class Document extends FileContainer {
   constructor(fileName: string, fileSize: number, uri: string, extension: string) {
@@ -11,73 +12,31 @@ class Document extends FileContainer {
     super(fileName, fileSize, defaultDimension, uri, extension);
   }
 
-  /*
-  * @signature : getFileName(): string
-  * @purpose   : Returns the name of the document file
-  * @params    : None
-  * @return    : The file name as a string
-  */
   getFileName(): string {
     return this.fileName;
   }
 
-  /*
-  * @signature : setFileName(name: string): void
-  * @purpose   : Sets the name of the document file
-  * @params    : name - The new file name
-  * @return    : None
-  */
   setFileName(name: string): void {
     this.fileName = name;
   }
 
-  /*
-  * @signature : getFileType(): string
-  * @purpose   : Returns the type of the file
-  * @params    : None
-  * @return    : The string "document"
-  */
   getFileType(): string {
     return "document";
   }
 
-  /*
-  * @signature : getDimensions(): Dimension
-  * @purpose   : Returns the dimensions of the document (Default values for documents)
-  * @params    : None
-  * @return    : Dimension object with width and height
-  */
   getDimensions(): Dimension {
     return this.dimensions;
   }
 
-  /*
-  * @signature : getFileSize(): number
-  * @purpose   : Returns the size of the document file in bytes
-  * @params    : None
-  * @return    : The file size as a number
-  */
   getFileSize(): number {
     return this.fileSize;
   }
 
-  /*
-  * @signature : setPath(filepath: string): FILE_ERROR
-  * @purpose   : Sets the file path for the document (Not implemented)
-  * @params    : filepath - The path to set
-  * @return    : FILE_ERROR enum value
-  */
   setPath(filepath: string): FILE_ERROR {
     console.warn("setPath() not implemented");
     return FILE_ERROR.RESP_ERROR;
   }
 
-  /*
-  * @signature : async loadBinaryData(): Promise<FILE_ERROR>
-  * @purpose   : Loads the binary data of the document from the URI
-  * @params    : None
-  * @return    : Promise resolving to a FILE_ERROR enum value
-  */
   async loadBinaryData(): Promise<FILE_ERROR> {
     try {
       const response = await fetch(this.uri);
@@ -90,14 +49,8 @@ class Document extends FileContainer {
     }
   }
 
-  /*
-  * @signature : async uploadFile(uploadUrl: string): Promise<{status: FILE_ERROR, filename: string}>
-  * @purpose   : Uploads the document to the specified URL
-  * @params    : uploadUrl - The URL to upload the document to
-  * @return    : Promise resolving to an object with status and filename
-  */
-  async uploadFile(uploadUrl: string): Promise<{status: FILE_ERROR, filename: string}> {
-    console.log("Attempting to upload document as raw binary data");
+  async uploadFile(serverIP: string, serverPort: number = 5000): Promise<{status: FILE_ERROR, filename: string}> {
+    console.log(`Attempting to upload document to ESP32 at ${serverIP}:${serverPort}`);
 
     if (!this.binaryData) {
       console.error("No binary data available");
@@ -105,50 +58,64 @@ class Document extends FileContainer {
     }
 
     return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", uploadUrl);
-
-      // Set appropriate content type based on file extension
-      xhr.setRequestHeader("Content-Type", `application/${this.extension}`);
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            if (response.filename) {
-              this.fileName = response.filename.split(".")[0];
-              console.log("Received filename:", this.fileName);
-              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
-            } else {
-              console.error("Response doesn't contain filename", xhr.responseText);
-              resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
-            }
-          } catch (error) {
-            console.error("Error parsing response:", error);
-            resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+      // Create TCP socket connection
+      const client = TcpSocket.createConnection({
+        host: serverIP,
+        port: serverPort,
+        tls: false
+      }, () => {
+        console.log('Connected to ESP32 server');
+        
+        // First send filename to the server
+        client.write(this.fileName);
+        
+        // Set up data handler to receive server responses
+        client.on('data', (data) => {
+          const response = data.toString('utf8');
+          console.log('Response from server:', response);
+          
+          // If server acknowledges the filename, send the command
+          if (response.includes('Filename received successfully')) {
+            console.log('Sending write command to ESP32');
+            client.write('write');
+            
+            // Wait for server to acknowledge the command
+            client.once('data', (cmdResponse) => {
+              const cmdResponseText = cmdResponse.toString('utf8');
+              console.log('Command response:', cmdResponseText);
+              
+              if (cmdResponseText === 'OK') {
+                // Send the actual file data
+                console.log('Sending file data...');
+                
+                // Convert ArrayBuffer to Buffer for TCP transmission
+                const fileBuffer = Buffer.from(this.binaryData);
+                client.write(fileBuffer);
+                
+                // After sending all data, close the connection
+                client.end();
+                resolve({status: FILE_ERROR.FILE_SUCCESS, filename: this.fileName});
+              } else {
+                console.error('Server rejected write command:', cmdResponseText);
+                client.destroy();
+                reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
+              }
+            });
+          } else {
+            console.error('Failed to send filename to server');
+            client.destroy();
+            reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
           }
-        } else {
-          console.error("Error uploading binary data:", xhr.status, xhr.responseText);
-          reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
-        }
-      };
+        });
+      });
 
-      xhr.onerror = () => {
-        console.error("Network error while uploading binary data");
+      client.on('error', (error) => {
+        console.error('TCP socket error:', error);
         reject({status: FILE_ERROR.FILE_UPLOAD_FAILED, filename: ""});
-      };
-
-      // Send the binary data as the body of the request
-      xhr.send(this.binaryData);
+      });
     });
   }
 
-  /*
-  * @signature : async saveFile(): Promise<FILE_ERROR>
-  * @purpose   : Saves the document information to the database
-  * @params    : None
-  * @return    : Promise resolving to a FILE_ERROR enum value
-  */
   async saveFile(): Promise<FILE_ERROR> {
     try {
       const DocumentRepository = AppDataSource.getRepository(DocumentTable);
@@ -171,3 +138,4 @@ class Document extends FileContainer {
 }
 
 export default Document;
+
