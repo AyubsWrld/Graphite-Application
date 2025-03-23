@@ -12,7 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../App";
-
+import { drop } from "../../lib/modules/FileManager.ts";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Login">;
 
@@ -128,7 +128,8 @@ export function LoginScreen({ navigation }: Props) {
       <View style={styles.footerContainer}>
         <Text style={styles.footerText}>Don’t have an account?</Text>
         <TouchableOpacity
-          onPress={() =>{ navigation.navigate("Register")} }>
+          // onPress={() =>{ navigation.navigate("Register")} }>
+          onPress={() =>{ drop() } }>
           <Text style={styles.registerText}> Register now</Text>
         </TouchableOpacity>
       </View>

@@ -18,5 +18,8 @@ export class Image {
     extension: string;
 
     @Column({ type: "text" })
+    filetype : string;
+
+    @Column({ type: "text" })
     uri: string;
 }

@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryColumn } from "typeorm";
 
 @Entity()
-export class Image {
+export class File {
     @PrimaryColumn({ type: "text" })
     abs_path: string;
 

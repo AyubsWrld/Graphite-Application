@@ -1,24 +1,33 @@
 import { UploadProgress, Dimension } from "../types/FileTypes";
 import { FILE_ERROR } from "../types/ErrorTypes.ts" ; 
 
-import { File as File_ } from "../../utils/database/entities/File" ; 
+import { Image as File_ } from "../../utils/database/entities/Image.ts" ; 
 import { AppDataSource } from "../../utils/database/data-source" ; 
+import TcpSocket from 'react-native-tcp-socket';
 
 abstract class FileContainer {
   private filename_   : string;
   private filetype_   : string;
   private filesize_   : number;
   private dimensions_ : Dimension;
-  private duration_   : number | null ;
   private uri_ : string;
   private extension_ : string;
+  private binaryData?: ArrayBuffer;
 
-  constructor(filename_: string, fileSize: number, dimensions: Dimension, uri: string, extension: string) {
-    this.filename_ = fileName;
-    this.fileSize = fileSize;
-    this.dimensions = dimensions;
-    this.uri = uri;
-    this.extension = extension;
+  constructor(
+    fileName : string,
+    fileSize: number,
+    dimensions: Dimension,
+    fileType : string ,
+    uri: string,
+    extension: string
+  ) {
+    this.filename_ = fileName ;
+    this.filesize_ = fileSize;
+    this.dimensions_ = dimensions;
+    this.filetype_ = fileType;
+    this.uri_ = uri;
+    this.extension_ = extension;
   }
 
   getFileName(): string 
@@ -39,9 +48,31 @@ abstract class FileContainer {
     return this.filesize_ ;
   }
 
+  getUri() : string | null 
+  {
+    return this.uri_ ? this.uri_ : null ; 
+  }
   setPath(filepath: string): FILE_ERROR 
   {
+    return FILE_ERROR.FILE_OK ; 
+  }
 
+
+  async loadBinaryData(): Promise<FILE_ERROR> {
+    if ( !this.uri_ ) {
+      console.log("could not find uri") ;
+    }
+    try {
+      const response = await fetch( this.uri_ );  
+      const buffer = await response.arrayBuffer();  
+      console.log("Buffer len" , buffer.byteLength); 
+      this.binaryData = buffer;  
+      console.log("Successfully loaded binary data, length:");
+      return FILE_ERROR.FILE_SUCCESS;
+    } catch (error) {
+      console.error("Error loading binary data:", error);
+      return FILE_ERROR.RESP_ERROR;
+    }
   }
 
   async uploadFile(serverIP: string, serverPort: number = 5000): Promise<{status: FILE_ERROR, filename: string}> {
@@ -60,13 +91,9 @@ abstract class FileContainer {
           }, () => {
               console.log('Connected to ESP32 server');
               
-	  
-	      var fname ; 
-	      if( this.filename_.length >= 10 ){ fname = this.filename_.substring(0 , 10) + "." + this.extension ; }else{fname = this.fileName} 
-	      console.log("Attempting to write filenmae : " , fname ) ; 
-	      console.log("Spliced : " , this.filename_.substring( 0 , 10 )); 
-	      console.log("Length : " , this.filename_.length) ; 
-              client.write( fname );
+
+	      console.log("Attempting to write filenmae : " , this.filename_ ) ; 
+              client.write( this.filename_ );
               
               // Set up data handler for all responses
               client.on('data', (data) => {
@@ -122,7 +149,8 @@ abstract class FileContainer {
       });
   }
 
-  async saveFile():FILE_ERROR ; 
+
+  async saveFile():FILE_ERROR 
   {
     const FileRepository = AppDataSource.getRepository( File_ ) ; 
     const fileInstance = new File_() ; 
@@ -130,10 +158,12 @@ abstract class FileContainer {
     fileInstance.filetype = this.filetype_                         ; 
     fileInstance.height   = this.dimensions_.height                ; 
     fileInstance.width    = this.dimensions_.width                 ; 
-    fileInstance.duration = this.duration_ ? this.duration_ : null ; 
     fileInstance.uri      = this.uri_                              ; 
+    fileInstance.extension = this.extension_                       ; 
+    fileInstance.abs_path   = "sdcard/"                            ; 
     try {
-      const res = await
+      const res = await FileRepository.save(fileInstance) ;
+      console.log("Saved file successfully");
     } catch (error) {
         console.log(`Error occrued while saving file: ${error}`) ;
     }

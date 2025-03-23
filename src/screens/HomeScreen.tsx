@@ -264,44 +264,6 @@ export default function HomeScreen({ route, navigation }: Props) {
   const handleFetch = async (filename: string, extension: string) => {
     try {
       console.log(`${APP_DBG} : Fetching file: ${filename}`);
-      setIsImageLoading(true);
-      setImageError(null);
-      setModalVisible(true);
-      
-      // Create the payload
-      const payload = JSON.stringify({
-        filename: `${filename}.${extension}`
-      });
-      
-      const fetchOptions = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: payload
-      };
-      
-      console.log(`${APP_DBG} : Sending request to ${FETCH_URL} with payload:`, payload);
-      
-      // Make the fetch request
-      const response = await fetch(FETCH_URL, fetchOptions);
-      
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-      
-      // Convert response to blob
-      const blob = await response.blob();
-      
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        const base64data = reader.result as string;
-        setSelectedImage(base64data);
-        setIsImageLoading(false);
-      };
-      
     } catch (error) {
       console.error(`${APP_DBG} : Error fetching image:`, error);
       setImageError(`Failed to load image: ${error.message}`);

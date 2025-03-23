@@ -9,6 +9,7 @@ interface Image {
   height: number;
   width: number;
   extension: string;
+  filetype : string;
   uri: string;
 }
 

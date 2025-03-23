@@ -24,35 +24,23 @@ const initializeDatabase = async () => {
   }
 };
 
-const createVideo = (
-  fileName: string,
-  fileSize: number,
-  dimensions: Dimension,
-  uri: string,
-  extension: string,
-  duration: number
-): FileContainer => {
-  return new Video(fileName, fileSize, dimensions, uri, extension, duration);
-};
-
-const createImage = (
-  fileName: string,
-  fileSize: number,
-  dimensions: Dimension,
-  uri: string,
-  extension: string
-): FileContainer => {
-  return new Image(fileName, fileSize, dimensions, uri, extension);
-};
-
-const createDocument = (
-  fileName: string,
-  fileSize: number,
-  uri: string,
-  extension: string
-): FileContainer => {
-  return new Document(fileName, fileSize, uri, extension);
-};
+const createFile = 
+(
+  filename_   : string, 
+  filetype_   : string,
+  filesize_   : number,
+  dimensions_ : Dimension,
+  uri_ : string,
+  extension_ : string
+) : FileContainer => {
+  return new FileContainer( 
+    filename_,
+    filesize_,
+    dimensions_,
+    filetype_,
+    uri_,
+    extension_ ) ;
+}
 
 const getFileCategory = (type: string | null): string => {
   if (!type) return "unknown";
@@ -66,8 +54,8 @@ const getFileCategory = (type: string | null): string => {
   }
 };
 
-const getFileExtension = (fileName: string, type: string | null): string => {
-  if (fileName && fileName.includes('.')) {
+const getFileExtension = (fileName : string, type: string | null): string => {
+  if ( fileName && fileName.includes('.')) {
     return fileName.split('.').pop() || "";
   }
   
@@ -80,66 +68,54 @@ const getFileExtension = (fileName: string, type: string | null): string => {
 
 export const openDocumentPicker = async (): Promise<FileContainer> => {
   await initializeDatabase();
-  
+
   try {
     const results = await DocumentPicker.pickSingle({
       type: [DocumentPicker.types.allFiles],
       copyTo: 'documentDirectory',
     });
-    
-    const fileType = getFileCategory(results.type);
-    console.log("Results: " , results) ; 
-    const extension = getFileExtension(results.name || "", results.type);
-    
-    let file: FileContainer;
-    
-    if (fileType === "image") {
-      // For images, you might need to get dimensions
-      file = createImage(
-        results.name || "image",
-        results.size || 0,
-        { width: 0, height: 0 }, 
-        results.fileCopyUri || results.uri,
-        extension
-      );
-      
-      if (file instanceof Image) {
-        const result = await file.loadBinaryData();
-        if (result !== FILE_ERROR.FILE_SUCCESS) {
-          throw new Error("Failed to load image binary data");
-        }
-      }
-    } else if (fileType === "video") {
-      file = createVideo(
-        results.name || "video",
-        results.size || 0,
-        { width: 0, height: 0 }, // Would need additional processing to get video dimensions
-        results.fileCopyUri || results.uri,
-        extension,
-        0 // Would need additional processing to get video duration
-      );
-    } else {
-      // For any other document type
-      file = createDocument(
-        results.name || "document",
-        results.size || 0,
-        results.fileCopyUri || results.uri,
-        extension
-      );
+
+    if (!results.name) {
+      throw new Error("Selected file has no name.");
     }
-    
-    return file;
+
+    const fileType = getFileCategory(results.type);
+    const extension = getFileExtension(results.name, results.type);
+
+    let file: FileContainer;
+    try {
+      file = createFile(
+        results.name,
+        fileType,
+        results.size || 0,
+        { height: 0, width: 0 },
+        results.uri,
+        extension
+      );
+      console.log("file uri : " , file.getUri()) ;
+      const result = await file.loadBinaryData();
+      if (result !== FILE_ERROR.FILE_SUCCESS) {
+        throw new Error("Failed to load binary data");
+      }
+
+      console.log("File created successfully:", file);
+      return file;
+    } catch (error) {
+      console.error("Failed to instantiate file:", error);
+      throw new Error("File instantiation error.");
+    }
   } catch (err) {
     if (DocumentPicker.isCancel(err)) {
+      console.warn("User cancelled document picking.");
       throw new Error("User Cancelled");
     } else {
+      console.error("Error picking document:", err);
       throw new Error(`Error picking document: ${err.message}`);
     }
   }
 };
 
 export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
-  // Ensure the database is initialized
   await initializeDatabase();
   
   try {
@@ -151,7 +127,6 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
       }
     }
     
-    // For document files, we'll use our TCP implementation to upload to ESP32
     if (file instanceof Document) {
       const uploadResult = await file.uploadFile(ESP32_IP, ESP32_PORT);
       if (uploadResult.status !== FILE_ERROR.FILE_SUCCESS) {
@@ -171,7 +146,7 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
       return saveResult;
     }
     
-    console.log("File saved successfully:", file.fileName);
+    console.log("File saved successfully:", file.filename_);
     return FILE_ERROR.FILE_SUCCESS;
   } catch (error) {
     console.error("Error saving file:", error);
@@ -179,8 +154,20 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
   }
 };
 
+
+export const drop = async () => 
+{
+  try {
+    await initializeDatabase() ; 
+    const imageRepository = AppDataSource.getRepository(ImageTable) ; 
+    await imageRepository.clear() ; 
+  } catch (error) {
+    console.log(`Error while dropping db: ${error}`) ; 
+  }
+
+}
 // Function to read a file from ESP32
-export const readFileFromESP32 = async (fileName: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
+export const readFileFromESP32 = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
   const TcpSocket = require('react-native-tcp-socket');
   
   return new Promise((resolve) => {
@@ -188,10 +175,10 @@ export const readFileFromESP32 = async (fileName: string): Promise<{data: ArrayB
       host: ESP32_IP,
       port: ESP32_PORT
     }, () => {
-      console.log(`Connected to ESP32 server to read file: ${fileName}`);
+      console.log(`Connected to ESP32 server to read file: ${filename_}`);
       
       // Send filename first
-      client.write(fileName);
+      client.write(filename_);
       
       // Wait for server acknowledgment
       let dataBuffer: Buffer[] = [];
@@ -248,7 +235,6 @@ export const readFileFromESP32 = async (fileName: string): Promise<{data: ArrayB
 };
 
 export const loadImages = async (): Promise<ImageTable[]> => {
-  // Ensure the database is initialized
   await initializeDatabase();
   
   try {
@@ -275,7 +261,7 @@ export const loadDocuments = async (): Promise<DocumentTable[]> => {
 };
 
 // Function to delete a file from ESP32
-export const deleteFileFromESP32 = async (fileName: string): Promise<FILE_ERROR> => {
+export const deleteFileFromESP32 = async (filename_: string): Promise<FILE_ERROR> => {
   const TcpSocket = require('react-native-tcp-socket');
   
   return new Promise((resolve) => {
@@ -283,10 +269,10 @@ export const deleteFileFromESP32 = async (fileName: string): Promise<FILE_ERROR>
       host: ESP32_IP,
       port: ESP32_PORT
     }, () => {
-      console.log(`Connected to ESP32 server to delete file: ${fileName}`);
+      console.log(`Connected to ESP32 server to delete file: ${filename_}`);
       
       // Send filename first
-      client.write(fileName);
+      client.write(filename_);
       
       // Wait for server acknowledgment
       let receivedAck = false;
