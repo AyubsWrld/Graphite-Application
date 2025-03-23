@@ -21,7 +21,7 @@ import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
-import { openDocumentPicker, writeFile, clearDB } from '../../lib/modules/FileManager.ts';
+import { readBinaries , openDocumentPicker, writeFile, clearDB } from '../../lib/modules/FileManager.ts';
 import { UploadProgress } from "../../lib/types/FileTypes";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useImages } from '../context/ImageContext';
@@ -261,13 +261,19 @@ export default function HomeScreen({ route, navigation }: Props) {
     ]).start();
   };
 
-  const handleFetch = async (filename: string, extension: string) => {
-    try {
-      console.log(`${APP_DBG} : Fetching file: ${filename}`);
-    } catch (error) {
-      console.error(`${APP_DBG} : Error fetching image:`, error);
-      setImageError(`Failed to load image: ${error.message}`);
-      setIsImageLoading(false);
+  const handleFetch = async (filename: string, type : string) => {
+    if (type === "image") {
+      try {
+        console.log(`${APP_DBG} : Fetching file: ${filename}`);
+        const res = await readBinaries( filename )   ; 
+        console.log(res.data.byteLength) ; 
+      } catch (error) {
+        console.error(`${APP_DBG} : Error fetching image:`, error);
+        setImageError(`Failed to load image: ${error.message}`);
+        setIsImageLoading(false);
+      }
+    }else{
+      console.log("Haven't implemented yet") ;
     }
   };
 
@@ -348,7 +354,7 @@ export default function HomeScreen({ route, navigation }: Props) {
               <TouchableOpacity 
                 key={index} 
                 style={styles.fileItem} 
-                onPress={() => handleFetch(image.filename, image.extension)}
+                onPress={() => { handleFetch(image.filename, image.filetype ); } } 
               >
                 <View style={styles.fileIcon}>
                   <Image

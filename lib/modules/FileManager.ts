@@ -166,9 +166,9 @@ export const drop = async () =>
   }
 
 }
-// Function to read a file from ESP32
+
+
 export const readFileFromESP32 = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
-  const TcpSocket = require('react-native-tcp-socket');
   
   return new Promise((resolve) => {
     const client = TcpSocket.createConnection({
@@ -177,10 +177,8 @@ export const readFileFromESP32 = async (filename_: string): Promise<{data: Array
     }, () => {
       console.log(`Connected to ESP32 server to read file: ${filename_}`);
       
-      // Send filename first
       client.write(filename_);
       
-      // Wait for server acknowledgment
       let dataBuffer: Buffer[] = [];
       let receivedAck = false;
       let receivedCommandAck = false;
@@ -303,6 +301,59 @@ export const deleteFileFromESP32 = async (filename_: string): Promise<FILE_ERROR
         console.error('Error connecting to ESP32:', error);
         client.destroy();
         resolve(FILE_ERROR.RESP_ERROR);
+      });
+    });
+  });
+};
+
+
+export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
+  const TcpSocket = require('react-native-tcp-socket');
+  return new Promise((resolve) => {
+    const client = TcpSocket.createConnection({
+      host: ESP32_IP,
+      port: ESP32_PORT
+    }, () => {
+      console.log(`Connected to ESP32 server to read file: ${filename_}`);
+      
+      client.write(filename_);
+      let dataBuffer: Buffer[] = [];
+      let receivedAck = false;
+      let receivedCommandAck = false;
+      
+      client.on('data', (data) => {
+        const response = data.toString('utf8');
+        
+        if (!receivedAck) {
+          console.log('Initial server response:', response);
+          receivedAck = true;
+          client.write('read') ;
+        } 
+        dataBuffer.push(data);
+      });
+      
+      client.on('error', (error) => {
+        console.error('Error reading from ESP32:', error);
+        client.destroy();
+        resolve({data: null, error: FILE_ERROR.RESP_ERROR});
+      });
+      
+      client.on('close', () => {
+        console.log('Connection closed, processing received data');
+        
+        if (dataBuffer.length > 0) {
+          const combinedLength = dataBuffer.reduce((total, buf) => total + buf.length, 0);
+          const combinedBuffer = Buffer.concat(dataBuffer, combinedLength);
+          
+          const arrayBuffer = combinedBuffer.buffer.slice(
+            combinedBuffer.byteOffset, 
+            combinedBuffer.byteOffset + combinedBuffer.length
+          );
+          console.log("FIle successfully recieved , after length: " , arrayBuffer) ; 
+          resolve({data: arrayBuffer, error: FILE_ERROR.FILE_SUCCESS});
+        } else {
+          resolve({data: null, error: FILE_ERROR.RESP_ERROR});
+        }
       });
     });
   });
