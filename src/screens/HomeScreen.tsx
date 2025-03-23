@@ -261,19 +261,52 @@ export default function HomeScreen({ route, navigation }: Props) {
     ]).start();
   };
 
-  const handleFetch = async (filename: string, type : string) => {
+  const handleFetch = async (filename: string, type: string) => {
+    setIsImageLoading(true);
+    setModalVisible(true);
+    setImageError(null);
+
     if (type === "image") {
       try {
         console.log(`${APP_DBG} : Fetching file: ${filename}`);
-        const res = await readBinaries( filename )   ; 
-        console.log(res.data.byteLength) ; 
+        const res = await readBinaries(filename);
+        
+        if (!res || !res.data || res.data.byteLength === 0) {
+          throw new Error("No image data received");
+        }
+        
+        console.log(`${APP_DBG} : Received ${res.data.byteLength} bytes of image data`);
+        
+        // Convert ArrayBuffer to base64
+        const uint8Array = new Uint8Array(res.data);
+        let binary = '';
+        uint8Array.forEach(byte => {
+          binary += String.fromCharCode(byte);
+        });
+        
+        const base64 = btoa(binary);
+        
+        // Determine MIME type from filename
+        const extension = filename.split('.').pop()?.toLowerCase() || 'png';
+        const mimeType = 
+          extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : 
+          extension === 'gif' ? 'image/gif' : 
+          extension === 'webp' ? 'image/webp' : 
+          'image/png';
+        
+        const imageUri = `data:${mimeType};base64,${base64}`;
+        console.log(`${APP_DBG} : Image URI created (first 30 chars): ${imageUri.substring(0, 30)}...`);
+        
+        setSelectedImage(imageUri);
       } catch (error) {
         console.error(`${APP_DBG} : Error fetching image:`, error);
         setImageError(`Failed to load image: ${error.message}`);
+      } finally {
         setIsImageLoading(false);
       }
-    }else{
-      console.log("Haven't implemented yet") ;
+    } else {
+      setIsImageLoading(false);
+      setImageError("This file type is not supported yet");
     }
   };
 
@@ -407,6 +440,10 @@ export default function HomeScreen({ route, navigation }: Props) {
                     source={{ uri: selectedImage }}
                     style={styles.previewImage}
                     resizeMode="contain"
+                    onError={(e) => {
+                      console.error('Image loading error:', e.nativeEvent.error);
+                      setImageError('Error displaying image');
+                    }}
                   />
                 </View>
               ) : null}
@@ -456,7 +493,7 @@ export default function HomeScreen({ route, navigation }: Props) {
                     <View key={index}>
                       <TouchableOpacity 
                         style={styles.fileItem} 
-                        onPress={() => handleFetch(file.fileName || 'Unnamed', file.extension || 'unknown')}
+                        onPress={() => handleFetch(file.filename || 'Unnamed', file.filetype || 'unknown')}
                       >
                         <View style={styles.fileIcon}>
                           <Image

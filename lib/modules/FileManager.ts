@@ -306,7 +306,6 @@ export const deleteFileFromESP32 = async (filename_: string): Promise<FILE_ERROR
   });
 };
 
-
 export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
   const TcpSocket = require('react-native-tcp-socket');
   return new Promise((resolve) => {
@@ -319,17 +318,16 @@ export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffe
       client.write(filename_);
       let dataBuffer: Buffer[] = [];
       let receivedAck = false;
-      let receivedCommandAck = false;
       
       client.on('data', (data) => {
-        const response = data.toString('utf8');
-        
         if (!receivedAck) {
+          const response = data.toString('utf8');
           console.log('Initial server response:', response);
           receivedAck = true;
-          client.write('read') ;
-        } 
-        dataBuffer.push(data);
+          client.write('read');
+        } else {
+          dataBuffer.push(data);
+        }
       });
       
       client.on('error', (error) => {
@@ -343,15 +341,19 @@ export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffe
         
         if (dataBuffer.length > 0) {
           const combinedLength = dataBuffer.reduce((total, buf) => total + buf.length, 0);
+          console.log(`Total received data size: ${combinedLength} bytes`);
+          
           const combinedBuffer = Buffer.concat(dataBuffer, combinedLength);
           
           const arrayBuffer = combinedBuffer.buffer.slice(
             combinedBuffer.byteOffset, 
             combinedBuffer.byteOffset + combinedBuffer.length
           );
-          console.log("FIle successfully recieved , after length: " , arrayBuffer) ; 
+          
+          console.log(`ArrayBuffer created with byte length: ${arrayBuffer.byteLength}`);
           resolve({data: arrayBuffer, error: FILE_ERROR.FILE_SUCCESS});
         } else {
+          console.error('No data received from server');
           resolve({data: null, error: FILE_ERROR.RESP_ERROR});
         }
       });
