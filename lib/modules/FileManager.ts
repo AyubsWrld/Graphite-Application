@@ -79,7 +79,6 @@ const getFileExtension = (fileName: string, type: string | null): string => {
 };
 
 export const openDocumentPicker = async (): Promise<FileContainer> => {
-  // Ensure the database is initialized before proceeding
   await initializeDatabase();
   
   try {
@@ -89,6 +88,7 @@ export const openDocumentPicker = async (): Promise<FileContainer> => {
     });
     
     const fileType = getFileCategory(results.type);
+    console.log("Results: " , results) ; 
     const extension = getFileExtension(results.name || "", results.type);
     
     let file: FileContainer;
@@ -98,7 +98,7 @@ export const openDocumentPicker = async (): Promise<FileContainer> => {
       file = createImage(
         results.name || "image",
         results.size || 0,
-        { width: 0, height: 0 }, // You may need to use a library like react-native-image-size to get actual dimensions
+        { width: 0, height: 0 }, 
         results.fileCopyUri || results.uri,
         extension
       );
