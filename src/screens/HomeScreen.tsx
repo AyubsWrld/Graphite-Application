@@ -29,6 +29,7 @@ import { Image as ImageContainer } from '../../lib/models/Image';
 import FileContainer from '../../lib/models/FileContainer';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { FILE_ERROR } from "../../lib/types/ErrorTypes";
+import * as RNFS from 'react-native-fs' ;
 
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 

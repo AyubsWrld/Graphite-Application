@@ -42,7 +42,7 @@ export function LoginScreen({ navigation }: Props) {
     console.log("pollDatabase evoked");
     const res = await validateLoginRequest( email , password ) ; 
     console.log(res) ;
-    res != null ? navigation.navigate("Home" , { firstname : res.firstname , lastname : res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
+    res != null ? navigation.navigate("Testing" , { firstname : res.firstname , lastname : res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
   }
 
   const validatePassword = () => {

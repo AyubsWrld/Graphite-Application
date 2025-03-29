@@ -1,4 +1,3 @@
-import { DocumentPickerResponse } from 'react-native-document-picker';
 import * as DocumentPicker from 'react-native-document-picker';
 import { UploadProgress, Dimension } from "../../lib/types/FileTypes"; 
 import { FILE_ERROR } from "../../lib/types/ErrorTypes"; 
@@ -9,6 +8,7 @@ import Document from "../../lib/models/Document";
 import { AppDataSource } from "../../utils/database/data-source";
 import { Image as ImageTable } from "../../utils/database/entities/Image";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
+import FileViewer from 'react-native-file-viewer' ; 
 
 const ESP32_IP = "192.168.1.83"; 
 const ESP32_PORT = 5000;
@@ -357,6 +357,66 @@ export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffe
           resolve({data: null, error: FILE_ERROR.RESP_ERROR});
         }
       });
+    });
+  });
+};
+
+export const testReading = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
+
+  const RNFS = require('react-native-fs') ;
+  const path = `${RNFS.DocumentDirectoryPath}/${filename_}`
+  const TcpSocket = require('react-native-tcp-socket');
+  return new Promise((resolve) => {
+    const client = TcpSocket.createConnection({
+      host: ESP32_IP,
+      port: ESP32_PORT
+    }, () => {
+      console.log(`Connected to ESP32 server to read file: ${filename_}`);
+      
+      client.write(filename_);
+      let dataBuffer: Buffer[] = [];
+      let receivedAck = false;
+      
+      client.on('data', async (data) => {
+        if (!receivedAck) {
+          const response = data.toString('utf8');
+          console.log('Initial server response:', response);
+          receivedAck = true;
+          client.write('read');
+        } else {
+          // await RNFS.writeFile( path , data );
+          dataBuffer.push(data);
+        }
+      });
+      
+      client.on('error', (error) => {
+        console.error('Error reading from ESP32:', error);
+        client.destroy();
+        resolve({data: null, error: FILE_ERROR.RESP_ERROR});
+      });
+      
+      client.on('close', async () => {
+        console.log('Connection closed, processing received data');
+        
+        if (dataBuffer.length > 0) {
+          const combinedLength = dataBuffer.reduce((total, buf) => total + buf.length, 0);
+          console.log(`Total received data size: ${combinedLength} bytes`);
+          
+          const combinedBuffer = Buffer.concat(dataBuffer, combinedLength);
+          
+          const arrayBuffer = combinedBuffer.buffer.slice(
+            combinedBuffer.byteOffset, 
+            combinedBuffer.byteOffset + combinedBuffer.length
+          );
+          
+          console.log(`ArrayBuffer created with byte length: ${arrayBuffer.byteLength}`);
+          resolve({data: arrayBuffer, error: FILE_ERROR.FILE_SUCCESS});
+        } else {
+          console.error('No data received from server');
+          resolve({data: null, error: FILE_ERROR.RESP_ERROR});
+        }
+      });
+
     });
   });
 };
