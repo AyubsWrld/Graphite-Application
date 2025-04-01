@@ -41,14 +41,13 @@ export function TestingScreen( { params , navigation } : Props ) {
     }
   }
 
-  const writeFile = async ( filename : string ) : void => {
+  const writeFile = async ( filename : string = 'test.png') : void => {
     try {
       const path = `${RNFS.DocumentDirectoryPath}/${filename}`
       await RNFS.writeFile(path , 'Hello world' , 'utf8');
     } catch (e) {
       console.log(e) ;
     }
-
   }
 
 

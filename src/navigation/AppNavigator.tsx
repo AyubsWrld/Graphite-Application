@@ -23,7 +23,7 @@ const Stack = createNativeStackNavigator<AppStackParamList>()
 export function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Testing" screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Testing" component={ TestingScreen } />
         <Stack.Screen name="Login" component={LoginScreen} />

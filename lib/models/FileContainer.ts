@@ -5,7 +5,7 @@ import { Image as File_ } from "../../utils/database/entities/Image.ts" ;
 import { AppDataSource } from "../../utils/database/data-source" ; 
 import TcpSocket from 'react-native-tcp-socket';
 
-abstract class FileContainer {
+class FileContainer {
   private filename_   : string;
   private filetype_   : string;
   private filesize_   : number;
@@ -149,26 +149,29 @@ abstract class FileContainer {
       });
   }
 
-
-  async saveFile():FILE_ERROR 
-  {
-    const FileRepository = AppDataSource.getRepository( File_ ) ; 
-    const fileInstance = new File_() ; 
-    fileInstance.filename = this.filename_                         ; 
-    fileInstance.filetype = this.filetype_                         ; 
-    fileInstance.height   = this.dimensions_.height                ; 
-    fileInstance.width    = this.dimensions_.width                 ; 
-    fileInstance.uri      = this.uri_                              ; 
-    fileInstance.extension = this.extension_                       ; 
-    fileInstance.abs_path   = "sdcard/"                            ; 
+  async saveFile(): Promise<FILE_ERROR> {
+    const FileRepository = AppDataSource.getRepository(File_); 
+    const fileInstance = new File_();
+    fileInstance.filename = this.filename_;
+    fileInstance.filetype = this.filetype_;
+    fileInstance.height = this.dimensions_.height;
+    fileInstance.width = this.dimensions_.width;
+    fileInstance.uri = this.uri_;
+    fileInstance.extension = this.extension_;
+    fileInstance.abs_path = "sdcard/";
+    
     try {
-      const res = await FileRepository.save(fileInstance) ;
+      const res = await FileRepository.save(fileInstance);
       console.log("Saved file successfully");
+      return FILE_ERROR.FILE_SUCCESS;
     } catch (error) {
-        console.log(`Error occrued while saving file: ${error}`) ;
+      console.log(`Error occurred while saving file: ${error}`);
+      return FILE_ERROR.FILE_WRITE_ERROR;
     }
   }
+
 }
+
 
 export default FileContainer;
 

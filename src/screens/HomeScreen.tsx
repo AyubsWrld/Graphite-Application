@@ -21,7 +21,7 @@ import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AppStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
-import { readBinaries , openDocumentPicker, writeFile, clearDB } from '../../lib/modules/FileManager.ts';
+import { readBinaries , openDocumentPicker, writeFile, clearDB, testReading } from '../../lib/modules/FileManager.ts';
 import { UploadProgress } from "../../lib/types/FileTypes";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useImages } from '../context/ImageContext';
@@ -80,6 +80,10 @@ export default function HomeScreen({ route, navigation }: Props) {
     bottomSheetRef.current.close();
     setIsBottomSheetOpen(false);
   }
+
+  useEffect( () => {
+    setIsUploading(false);
+  }, []);
 
   useEffect(() => {
     Animated.timing(circularProgressAnimation, {
@@ -156,6 +160,8 @@ export default function HomeScreen({ route, navigation }: Props) {
   };
 
   const handleUpload = async () => {
+
+    setIsUploading(false);
     if (!files.length) {
       console.log(`${APP_DBG} : No files to upload`);
       return;
@@ -262,52 +268,13 @@ export default function HomeScreen({ route, navigation }: Props) {
     ]).start();
   };
 
-  const handleFetch = async (filename: string, type: string) => {
-    setIsImageLoading(true);
-    setModalVisible(true);
-    setImageError(null);
-
-    if (type === "image") {
-      try {
-        console.log(`${APP_DBG} : Fetching file: ${filename}`);
-        const res = await readBinaries(filename);
-        
-        if (!res || !res.data || res.data.byteLength === 0) {
-          throw new Error("No image data received");
-        }
-        
-        console.log(`${APP_DBG} : Received ${res.data.byteLength} bytes of image data`);
-        
-        // Convert ArrayBuffer to base64
-        const uint8Array = new Uint8Array(res.data);
-        let binary = '';
-        uint8Array.forEach(byte => {
-          binary += String.fromCharCode(byte);
-        });
-        
-        const base64 = btoa(binary);
-        
-        // Determine MIME type from filename
-        const extension = filename.split('.').pop()?.toLowerCase() || 'png';
-        const mimeType = 
-          extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : 
-          extension === 'gif' ? 'image/gif' : 
-          extension === 'webp' ? 'image/webp' : 
-          'image/png';
-        
-        const imageUri = `data:${mimeType};base64,${base64}`;
-        console.log(`${APP_DBG} : Image URI created (first 30 chars): ${imageUri.substring(0, 30)}...`);
-        
-        setSelectedImage(imageUri);
-      } catch (error) {
-        console.error(`${APP_DBG} : Error fetching image:`, error);
-        setImageError(`Failed to load image: ${error.message}`);
-      } finally {
-        setIsImageLoading(false);
-      }
-    } else {
-      setIsImageLoading(false);
-      setImageError("This file type is not supported yet");
+  const handleFetch = async (filename: string) => {
+    const res = await testReading(filename) ; 
+    if( res.data )
+    {
+      console.log('Data recieved')
+    }else{
+      console.log('Data not found') ; 
     }
   };
 
@@ -319,8 +286,8 @@ export default function HomeScreen({ route, navigation }: Props) {
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
-    if (tab === "images") {
       updateImages();
+    if (tab === "images") {
     }
   };
 
@@ -388,7 +355,7 @@ export default function HomeScreen({ route, navigation }: Props) {
               <TouchableOpacity 
                 key={index} 
                 style={styles.fileItem} 
-                onPress={() => { handleFetch(image.filename, image.filetype ); } } 
+                onPress={() => { handleFetch(image.filename); } } 
               >
                 <View style={styles.fileIcon}>
                   <Image
@@ -494,7 +461,7 @@ export default function HomeScreen({ route, navigation }: Props) {
                     <View key={index}>
                       <TouchableOpacity 
                         style={styles.fileItem} 
-                        onPress={() => handleFetch(file.filename || 'Unnamed', file.filetype || 'unknown')}
+                        onPress={() => handleFetch(file.filename || 'Unnamed')}
                       >
                         <View style={styles.fileIcon}>
                           <Image
@@ -526,7 +493,7 @@ export default function HomeScreen({ route, navigation }: Props) {
                 </ScrollView>
               ) : (
                 <TouchableOpacity style={styles.SheetFileBox} onPress={() => handleLoadFiles()}>
-                  <Text style={styles.SheetFileText}>Add files +</Text>
+                  <Text style={styles.SheetFileText}>Add files to Graphite +</Text>
                 </TouchableOpacity>
               )}
             </View>

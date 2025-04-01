@@ -6,7 +6,7 @@ import Image from "../../lib/models/Image";
 import Video from "../../lib/models/Video"; 
 import Document from "../../lib/models/Document";
 import { AppDataSource } from "../../utils/database/data-source";
-import { Image as ImageTable } from "../../utils/database/entities/Image";
+import { File as File_ } from "../../utils/database/entities/File.ts";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
 import FileViewer from 'react-native-file-viewer' ; 
 
@@ -14,15 +14,28 @@ const ESP32_IP = "192.168.1.83";
 const ESP32_PORT = 5000;
 
 const initializeDatabase = async () => {
+  if (!AppDataSource.isInitialized) {
   try {
-    if (!AppDataSource.isInitialized) {
       await AppDataSource.initialize();
       console.log("Data Source has been initialized!");
     }
-  } catch (error) {
+  catch (error) {
     console.error("Error during Data Source initialization:", error);
   }
 };
+}
+
+interface File{
+    abs_path: string;
+    filename: string;
+    height: number;
+    width: number;
+    extension: string;
+    filetype : string;
+    duration : string;
+    uri : string;
+}
+
 
 const createFile = 
 (
@@ -155,17 +168,17 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
 };
 
 
-export const drop = async () => 
-{
-  try {
-    await initializeDatabase() ; 
-    const imageRepository = AppDataSource.getRepository(ImageTable) ; 
-    await imageRepository.clear() ; 
-  } catch (error) {
-    console.log(`Error while dropping db: ${error}`) ; 
-  }
-
-}
+// export const drop = async () => 
+// {
+//   try {
+//     await initializeDatabase() ; 
+//     const imageRepository = AppDataSource.getRepository(ImageTable) ; 
+//     await imageRepository.clear() ; 
+//   } catch (error) {
+//     console.log(`Error while dropping db: ${error}`) ; 
+//   }
+//
+// }
 
 
 export const readFileFromESP32 = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
@@ -232,12 +245,14 @@ export const readFileFromESP32 = async (filename_: string): Promise<{data: Array
   });
 };
 
-export const loadImages = async (): Promise<ImageTable[]> => {
+export const loadImages = async (): Promise<File[]> => {
+  console.log('loadImages invoked') ; 
   await initializeDatabase();
-  
   try {
-    const imageRepository = AppDataSource.getRepository(ImageTable);
-    return await imageRepository.find(); 
+    const imageRepository = AppDataSource.getRepository(File_);
+    const res = await imageRepository.find() ; 
+    console.log(res) ; 
+    return res ; 
   } catch (error) {
     console.error("Error loading images from database:", error);
     return [];
@@ -361,11 +376,11 @@ export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffe
   });
 };
 
-export const testReading = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
-
-  const RNFS = require('react-native-fs') ;
-  const path = `${RNFS.DocumentDirectoryPath}/${filename_}`
+export const testReading = async (filename_: string = 'temp.png'): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
+  const RNFS = require('react-native-fs');
   const TcpSocket = require('react-native-tcp-socket');
+  const path = `${RNFS.DocumentDirectoryPath}/${filename_}`;
+
   return new Promise((resolve) => {
     const client = TcpSocket.createConnection({
       host: ESP32_IP,
@@ -377,14 +392,14 @@ export const testReading = async (filename_: string): Promise<{data: ArrayBuffer
       let dataBuffer: Buffer[] = [];
       let receivedAck = false;
       
-      client.on('data', async (data) => {
+      client.on('data', (data) => {
         if (!receivedAck) {
           const response = data.toString('utf8');
           console.log('Initial server response:', response);
           receivedAck = true;
           client.write('read');
         } else {
-          // await RNFS.writeFile( path , data );
+          // Accumulate binary data
           dataBuffer.push(data);
         }
       });
@@ -399,24 +414,41 @@ export const testReading = async (filename_: string): Promise<{data: ArrayBuffer
         console.log('Connection closed, processing received data');
         
         if (dataBuffer.length > 0) {
-          const combinedLength = dataBuffer.reduce((total, buf) => total + buf.length, 0);
-          console.log(`Total received data size: ${combinedLength} bytes`);
-          
-          const combinedBuffer = Buffer.concat(dataBuffer, combinedLength);
-          
-          const arrayBuffer = combinedBuffer.buffer.slice(
-            combinedBuffer.byteOffset, 
-            combinedBuffer.byteOffset + combinedBuffer.length
-          );
-          
-          console.log(`ArrayBuffer created with byte length: ${arrayBuffer.byteLength}`);
-          resolve({data: arrayBuffer, error: FILE_ERROR.FILE_SUCCESS});
+          try {
+            const combinedLength = dataBuffer.reduce((total, buf) => total + buf.length, 0);
+            console.log(`Total received data size: ${combinedLength} bytes`);
+            
+            const combinedBuffer = Buffer.concat(dataBuffer, combinedLength);
+            
+            // Write binary data to file
+            await RNFS.writeFile(path, combinedBuffer.toString('base64'), 'base64');
+            console.log(`File written to ${path}`);
+            
+            // Open the file with FileViewer
+            try {
+              await FileViewer.open(path);
+              console.log(`File opened successfully: ${path}`);
+            } catch (openError) {
+              console.error('Error opening file:', openError);
+            }
+            
+            // Create ArrayBuffer for return value
+            const arrayBuffer = combinedBuffer.buffer.slice(
+              combinedBuffer.byteOffset, 
+              combinedBuffer.byteOffset + combinedBuffer.length
+            );
+            
+            console.log(`ArrayBuffer created with byte length: ${arrayBuffer.byteLength}`);
+            resolve({data: arrayBuffer, error: FILE_ERROR.FILE_SUCCESS});
+          } catch (writeError) {
+            console.error('Error writing file:', writeError);
+            resolve({data: null, error: FILE_ERROR.FILE_WRITE_ERROR});
+          }
         } else {
           console.error('No data received from server');
           resolve({data: null, error: FILE_ERROR.RESP_ERROR});
         }
       });
-
     });
   });
 };
