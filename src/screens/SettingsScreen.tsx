@@ -9,12 +9,10 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../App";
+import { HomeStackParamList } from "../../App";
+type Props = NativeStackScreenProps<AuthStackParamList, 'Settings'>;
 
-export default function SettingsScreen() {
-  // navigation hook
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+export function SettingsScreen({ navigation } : Props ) {
 
   // Handler for back button
   const handleBackPress = () => {
@@ -65,28 +63,13 @@ export default function SettingsScreen() {
           </View>
           <Icon name="chevron-forward" size={22} style={styles.arrowIcon} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={ () => navigation.navigate("Home", { screen: "Config" })}
+        >
           <Icon name="wifi-outline" size={22} style={styles.menuIcon} />
           <View style={styles.menuTextContainer}>
             <Text style={styles.menuText}>Wifi Configuration</Text>
-          </View>
-          <Icon name="chevron-forward" size={22} style={styles.arrowIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="card-outline" size={22} style={styles.menuIcon} />
-          <View style={styles.menuTextContainer}>
-            <Text style={styles.menuText}>Excess</Text>
-          </View>
-          <Icon name="chevron-forward" size={22} style={styles.arrowIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon
-            name="notifications-outline"
-            size={22}
-            style={styles.menuIcon}
-          />
-          <View style={styles.menuTextContainer}>
-            <Text style={styles.menuText}>Excess</Text>
           </View>
           <Icon name="chevron-forward" size={22} style={styles.arrowIcon} />
         </TouchableOpacity>

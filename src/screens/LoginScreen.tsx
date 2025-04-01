@@ -11,10 +11,10 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../App";
+import  AuthStackParamList from "../../App.tsx";
 import { drop } from "../../lib/modules/FileManager.ts";
 
-type Props = NativeStackScreenProps<AppStackParamList, "Login">;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
@@ -42,7 +42,8 @@ export function LoginScreen({ navigation }: Props) {
     console.log("pollDatabase evoked");
     const res = await validateLoginRequest( email , password ) ; 
     console.log(res) ;
-    res != null ? navigation.navigate("Home" , { firstname : res.firstname , lastname : res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
+    // res != null ? navigation.navigate("Home" , { firstname : res.firstname , lastname : res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
+    res != null ? navigation.navigate("Main" , { firstname : res.firstname , lastname : res.lastname }) : Alert.alert(`Incorrect email or password\nPlease try again`) ;
   }
 
   const validatePassword = () => {
@@ -128,8 +129,7 @@ export function LoginScreen({ navigation }: Props) {
       <View style={styles.footerContainer}>
         <Text style={styles.footerText}>Don’t have an account?</Text>
         <TouchableOpacity
-          // onPress={() =>{ navigation.navigate("Register")} }>
-          onPress={() =>{ drop() } }>
+          onPress={() =>{ navigation.navigate("Register")} }>
           <Text style={styles.registerText}> Register now</Text>
         </TouchableOpacity>
       </View>

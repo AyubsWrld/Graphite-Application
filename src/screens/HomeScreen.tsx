@@ -19,7 +19,7 @@ import Add from "../assets/icons/add.png";
 import Cancel from "../assets/icons/cancel.png";
 import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { AppStackParamList } from "../navigation/AppNavigator";
+import { HomeStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
 import { readBinaries , openDocumentPicker, writeFile, clearDB, testReading } from '../../lib/modules/FileManager.ts';
 import { UploadProgress } from "../../lib/types/FileTypes";
@@ -35,11 +35,17 @@ import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/botto
 
 const APP_DBG: string = "APP";
 
-type Props = NativeStackScreenProps<AppStackParamList, "Home">;
+type Props = NativeStackScreenProps<HomeStackParamList, "Home">;
 
 export default function HomeScreen({ route, navigation }: Props) {
 
+  const navigateToConfig = () => {
+    navigation.navigate("Config");
+  };
 
+  const navigateToProfile = () => {
+    navigation.navigate("Profile");
+  };
   const { firstname, email } = route.params;
   const BINARY_UPLOAD_URL = "192.168.1.83";
 
