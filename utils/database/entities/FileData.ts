@@ -2,7 +2,11 @@ import { Entity, Column, PrimaryColumn } from "typeorm";
 
 @Entity()
 export class FileData {
+
     @PrimaryColumn({ type: "text" })
+    uri: string;
+
+    @Column({ type: "text" })
     abs_path: string;
 
     @Column({ type: "text" })
@@ -20,9 +24,4 @@ export class FileData {
     @Column({ type: "text" })
     filetype : string;
 
-    @Column({ type: "text" })
-    duration : string;
-
-    @Column({ type: "text" })
-    uri: string;
 }

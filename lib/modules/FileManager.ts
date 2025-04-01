@@ -6,7 +6,7 @@ import Image from "../../lib/models/Image";
 import Video from "../../lib/models/Video"; 
 import Document from "../../lib/models/Document";
 import { AppDataSource } from "../../utils/database/data-source";
-import { FileData as File_ } from "../../utils/database/entities/FileData.ts";
+import { FileData as File_ } from "../../utils/database/entities/FileData";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
 import FileViewer from 'react-native-file-viewer' ; 
 
@@ -248,13 +248,12 @@ export const readFileFromESP32 = async (filename_: string): Promise<{data: Array
 export const loadFiles = async (): Promise<File[]> => {
   console.log('loadFiles invoked');
   await initializeDatabase();
-  
   try {
     const fileRepository = AppDataSource.getRepository(File_);
-    
-    // Query with proper error handling
+    if(!fileRepository){
+      throw new Error('fileRepository undefined') ; 
+    }
     const files = await fileRepository.find();
-    
     if (!files || files.length === 0) {
       console.log('No files found in database');
       return [];
@@ -271,12 +270,10 @@ export const loadFiles = async (): Promise<File[]> => {
       extension: file.extension,
       filetype: file.filetype,
       uri: file.uri,
-      size: file.size
     }));
     
   } catch (error) {
     console.error("Error loading files from database:", error);
-    // Return empty array instead of throwing to make the app more resilient
     return [];
   }
 };

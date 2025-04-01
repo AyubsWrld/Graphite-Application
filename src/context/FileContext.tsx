@@ -96,7 +96,6 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   );
 };
 
-// Custom hook to use the file context
 export const useFiles = () => {
   const context = useContext(FileContext);
   if (!context) {

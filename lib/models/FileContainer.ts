@@ -1,7 +1,6 @@
 import { UploadProgress, Dimension } from "../types/FileTypes";
 import { FILE_ERROR } from "../types/ErrorTypes.ts" ; 
-
-import { Image as File_ } from "../../utils/database/entities/Image.ts" ; 
+import { FileData as File_ } from "../../utils/database/entities/FileData.ts" ; 
 import { AppDataSource } from "../../utils/database/data-source" ; 
 import TcpSocket from 'react-native-tcp-socket';
 
@@ -54,7 +53,10 @@ class FileContainer {
   }
   setPath(filepath: string): FILE_ERROR 
   {
-    return FILE_ERROR.FILE_OK ; 
+    return FILE_ERROR.FILE_SUCCESS; 
+  }
+  getExtension() : string {
+    return this.extension_ ; 
   }
 
 
@@ -148,6 +150,8 @@ class FileContainer {
           });
       });
   }
+
+  
 
   async saveFile(): Promise<FILE_ERROR> {
     const FileRepository = AppDataSource.getRepository(File_); 

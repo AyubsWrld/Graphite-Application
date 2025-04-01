@@ -43,7 +43,7 @@ export default function HomeScreen({ route, navigation }: Props) {
   const { firstname, email } = route.params;
   const BINARY_UPLOAD_URL = "192.168.1.83";
 
-  const { files , reloadFiles , isLoading } = useFiles(); 
+  const { files: existingFiles, reloadFiles, isLoading } = useFiles();
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -60,6 +60,7 @@ export default function HomeScreen({ route, navigation }: Props) {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("images");
+  const [ uploadFiles , setUploadFiles] = useState<FileContainer[]>([]);
 
   const updateFiles = () => {
     reloadFiles();
@@ -69,13 +70,13 @@ export default function HomeScreen({ route, navigation }: Props) {
   const CIRCLE_SIZE = 36;
   const CIRCLE_STROKE_WIDTH = 4;
   const CIRCLE_RADIUS = (CIRCLE_SIZE - CIRCLE_STROKE_WIDTH) / 2;
-  const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
+    const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
 
   const handleContinue = () => {
-    setFiles([]); 
+    setUploadFiles([]); 
     bottomSheetRef.current.close();
     setIsBottomSheetOpen(false);
   }
@@ -107,7 +108,7 @@ export default function HomeScreen({ route, navigation }: Props) {
         throw new Error("Failed to parse file");
       }
       console.log("Successfully selected the file");
-      setFiles((previousFiles) => [...previousFiles, selectedFile]);
+      setUploadFiles((previousFiles) => [...previousFiles, selectedFile]);
       setTotalFilesToUpload(prev => prev + 1);
       console.log(`${APP_DBG} : Successfully set file: ${selectedFile}`);
     } catch (error) {
@@ -117,7 +118,7 @@ export default function HomeScreen({ route, navigation }: Props) {
 
   const handleUploadSingleFile = async (fileToUpload: FileContainer) => {
     try {
-      const fileName = fileToUpload.fileName || 'unknown';
+      const fileName = fileToUpload.getFileName() || 'unknown';
       console.log("Attempting to write:", fileToUpload.getFileName());
       setFileProgress(prev => ({...prev, [fileName]: 0}));
 
@@ -159,32 +160,30 @@ export default function HomeScreen({ route, navigation }: Props) {
   };
 
   const handleUpload = async () => {
-
-    setIsUploading(false);
-    if (!files.length) {
-      console.log(`${APP_DBG} : No files to upload`);
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      
-      for (const file of files) {
-        await handleUploadSingleFile(file);
+      setIsUploading(false);
+      if (!uploadFiles.length) {
+        console.log(`${APP_DBG} : No files to upload`);
+        return;
       }
       
-      console.log(`${APP_DBG} : All files processed`);
-      updateImages(); // Reload images after upload completes
-    } catch (error) {
-      console.error(`${APP_DBG} : Error during batch upload:`, error);
-    } finally {
-      setIsUploading(false);
-      bottomSheetRef.current.close();
-      setIsBottomSheetOpen(false);
-      setFiles([]); 
-    }
+      try {
+        setIsUploading(true);
+        
+        for (const file of uploadFiles) {
+          await handleUploadSingleFile(file);
+        }
+        
+        console.log(`${APP_DBG} : All files processed`);
+        updateFiles(); // Make sure this function exists to reload files
+      } catch (error) {
+        console.error(`${APP_DBG} : Error during batch upload:`, error);
+      } finally {
+        setIsUploading(false);
+        bottomSheetRef.current.close();
+        setIsBottomSheetOpen(false);
+        setUploadFiles([]);
+      }
   };
-
   const handleUploadFiles = async (file: FileContainer) => {
     console.log("Attempting to save & upload file");
     await handleUploadSingleFile(file);
@@ -285,7 +284,7 @@ export default function HomeScreen({ route, navigation }: Props) {
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
-      updateImages();
+      reloadFiles();
     if (tab === "images") {
     }
   };
@@ -331,13 +330,13 @@ export default function HomeScreen({ route, navigation }: Props) {
           <View style={styles.tabsContainer}>
             <TouchableOpacity 
               style={[styles.tab, activeTab === "images" && styles.activeTab]} 
-              onPress={() => handleTabPress("images")}
+              onPress={() => { handleTabPress("images") ;}}
             >
               <Text style={activeTab === "images" ? styles.activeTabText : styles.tabText}>Images</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.tab, activeTab === "videos" && styles.activeTab]}
-              onPress={() => handleTabPress("videos")}
+              onPress={() => { handleTabPress("videos") ; console.log(`files: ${existingFiles}`)}}
             >
               <Text style={activeTab === "videos" ? styles.activeTabText : styles.tabText}>Videos</Text>
             </TouchableOpacity>
@@ -350,11 +349,11 @@ export default function HomeScreen({ route, navigation }: Props) {
           </View>
 
           <ScrollView style={styles.fileList}>
-            {files?.map((image, index) => (
+            {existingFiles?.map((file , index) => (
               <TouchableOpacity 
                 key={index} 
                 style={styles.fileItem} 
-                onPress={() => { handleFetch(image.filename); } } 
+                onPress={() => { handleFetch(file.filename); } } 
               >
                 <View style={styles.fileIcon}>
                   <Image
@@ -363,7 +362,7 @@ export default function HomeScreen({ route, navigation }: Props) {
                   />
                 </View>
                 <View style={styles.fileInfo}>
-                  <Text style={styles.filename}>{truncateString(image.filename, 10, image.extension)}</Text>
+                  <Text style={styles.filename}>{truncateString(file.filename, 10, file.extension)}</Text>
                   <Text style={styles.filesize}>7.5 kBs</Text>
                 </View>
                 <View style={styles.fileDetailsContainer}>
@@ -439,7 +438,7 @@ export default function HomeScreen({ route, navigation }: Props) {
             </View>
             <View style={styles.SheetSwitchRow}>
               {/* Circular Progress Indicator without text */}
-              {files.length > 0 ? (
+              {existingFiles?.length > 0 ? (
                 <View style={styles.uploadStatusContainer}>
                   <Text style={styles.SwitchText}>
                     {uploadedFiles === totalFilesToUpload ? 
@@ -454,13 +453,13 @@ export default function HomeScreen({ route, navigation }: Props) {
               )}
             </View>
             <View style={styles.AddButtonContainer}>
-              {files.length > 0 ? (
+              {uploadFiles.length > 0 ? (
                 <ScrollView style={styles.fileList}>
-                  {files?.map((file, index) => (
+                  {uploadFiles?.map((file, index) => (
                     <View key={index}>
                       <TouchableOpacity 
                         style={styles.fileItem} 
-                        onPress={() => handleFetch(file.filename || 'Unnamed')}
+                        onPress={() => handleFetch(file.getFileName()|| 'Unnamed')}
                       >
                         <View style={styles.fileIcon}>
                           <Image
@@ -469,12 +468,12 @@ export default function HomeScreen({ route, navigation }: Props) {
                           />
                         </View>
                         <View style={styles.fileInfo}>
-                          <Text style={styles.filename}>{truncateString(file.fileName || 'Unnamed', 10, file.extension || 'unknown')}</Text>
-                          <Text style={styles.filesize}>{file.size ? `${(file.size / 1024).toFixed(1)} kBs` : '0 kBs'}</Text>
+                          <Text style={styles.filename}>{truncateString(file.getFileName()|| 'Unnamed', 10, file.getExtension()|| 'unknown')}</Text>
+                          <Text style={styles.filesize}>{file.getFileSize() ? `${(file.getFileSize() / 1024).toFixed(1)} kBs` : '0 kBs'}</Text>
                         </View>
                         <View style={styles.fileDetailsContainer}>
-                          <Text style={styles.filePath}>{file.uri ? file.uri.split('/').slice(-2, -1)[0] : '/folder'}</Text>
-                          <Text style={styles.filePercentage}>{`${fileProgress[file.fileName || 'unknown'] || 0}%`}</Text>
+                          <Text style={styles.filePath}>{file?.getUri()? file?.getUri().split('/').slice(-2, -1)[0] : '/folder'}</Text>
+                          <Text style={styles.filePercentage}>{`${fileProgress[file.getFileName()|| 'unknown'] || 0}%`}</Text>
                         </View>
                       </TouchableOpacity>
                       <View style={styles.fileProgressBarContainer}>
@@ -502,7 +501,7 @@ export default function HomeScreen({ route, navigation }: Props) {
                 isUploading ? { backgroundColor: '#cccccc' } : {}
               ]} 
               onPress={handleUpload}
-              disabled={isUploading || files.length === 0}
+              disabled={isUploading || uploadFiles.length === 0}
             >
               <Text style={styles.SheetButtonText}>
                 {isUploading ? 'Uploading...' : 'Continue'}
