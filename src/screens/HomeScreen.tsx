@@ -24,7 +24,7 @@ import { AppDataSource } from "../../utils/database/data-source.ts";
 import { readBinaries , openDocumentPicker, writeFile, clearDB, testReading } from '../../lib/modules/FileManager.ts';
 import { UploadProgress } from "../../lib/types/FileTypes";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { useImages } from '../context/ImageContext';
+import { useFiles } from '../context/FileContext';
 import { Image as ImageContainer } from '../../lib/models/Image';
 import FileContainer from '../../lib/models/FileContainer';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -43,13 +43,11 @@ export default function HomeScreen({ route, navigation }: Props) {
   const { firstname, email } = route.params;
   const BINARY_UPLOAD_URL = "192.168.1.83";
 
-  const { images, reloadImages } = useImages(); 
-  const [ imagesFromRepo, setImagesFromRepo ] = useState(useImages()); 
+  const { files , reloadFiles , isLoading } = useFiles(); 
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(300));
-  const [files, setFiles] = useState<FileContainer[]>([]);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
@@ -63,9 +61,10 @@ export default function HomeScreen({ route, navigation }: Props) {
   const [imageError, setImageError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("images");
 
-  const updateImages = () => {
-    reloadImages(); 
+  const updateFiles = () => {
+    reloadFiles();
   }
+  
 
   const CIRCLE_SIZE = 36;
   const CIRCLE_STROKE_WIDTH = 4;
@@ -291,7 +290,7 @@ export default function HomeScreen({ route, navigation }: Props) {
     }
   };
 
-  if (!images) {
+  if ( false ) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F6EF7" />
@@ -351,7 +350,7 @@ export default function HomeScreen({ route, navigation }: Props) {
           </View>
 
           <ScrollView style={styles.fileList}>
-            {images?.map((image, index) => (
+            {files?.map((image, index) => (
               <TouchableOpacity 
                 key={index} 
                 style={styles.fileItem} 

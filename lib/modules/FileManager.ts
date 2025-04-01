@@ -6,7 +6,7 @@ import Image from "../../lib/models/Image";
 import Video from "../../lib/models/Video"; 
 import Document from "../../lib/models/Document";
 import { AppDataSource } from "../../utils/database/data-source";
-import { File as File_ } from "../../utils/database/entities/File.ts";
+import { FileData as File_ } from "../../utils/database/entities/FileData.ts";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
 import FileViewer from 'react-native-file-viewer' ; 
 
@@ -245,19 +245,42 @@ export const readFileFromESP32 = async (filename_: string): Promise<{data: Array
   });
 };
 
-export const loadImages = async (): Promise<File[]> => {
-  console.log('loadImages invoked') ; 
+export const loadFiles = async (): Promise<File[]> => {
+  console.log('loadFiles invoked');
   await initializeDatabase();
+  
   try {
-    const imageRepository = AppDataSource.getRepository(File_);
-    const res = await imageRepository.find() ; 
-    console.log(res) ; 
-    return res ; 
+    const fileRepository = AppDataSource.getRepository(File_);
+    
+    // Query with proper error handling
+    const files = await fileRepository.find();
+    
+    if (!files || files.length === 0) {
+      console.log('No files found in database');
+      return [];
+    }
+    
+    console.log(`Found ${files.length} files in database`);
+    
+    // Map database results to the File interface if needed
+    return files.map(file => ({
+      abs_path: file.abs_path,
+      filename: file.filename,
+      height: file.height,
+      width: file.width,
+      extension: file.extension,
+      filetype: file.filetype,
+      uri: file.uri,
+      size: file.size
+    }));
+    
   } catch (error) {
-    console.error("Error loading images from database:", error);
+    console.error("Error loading files from database:", error);
+    // Return empty array instead of throwing to make the app more resilient
     return [];
   }
 };
+
 
 // Add function to load documents if needed
 export const loadDocuments = async (): Promise<DocumentTable[]> => {
