@@ -363,12 +363,20 @@ export default function HomeScreen({ route, navigation }: Props) {
                 </View>
                 <View style={styles.fileInfo}>
                   <Text style={styles.filename}>{truncateString(file.filename, 10, file.extension)}</Text>
-                  <Text style={styles.filesize}>7.5 kBs</Text>
+                  <Text style={styles.filesize}>{file.size? file.size : "7.5kB"}</Text>
                 </View>
                 <View style={styles.fileDetailsContainer}>
                   <Text style={styles.filePath}>/sdcard/folder</Text>
                   <Text style={styles.filePercentage}>0.4%</Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() => { () => console.log('Handling Deletion'); } } 
+                  style={styles.dots}
+                > 
+                  <Text>
+                    x
+                  </Text>
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -923,4 +931,13 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+
+  dots: {
+    alignItems : 'center',
+    justifyContent: 'center',
+    backgroundColor : 'red' , 
+    width: 24,
+    height: 36,
+  },
+
   })
