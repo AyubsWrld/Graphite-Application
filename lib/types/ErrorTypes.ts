@@ -4,6 +4,9 @@ export enum FILE_ERROR {
   RESP_ERROR = 2,
   UPLOAD_ERROR = 3,
   NETWORK_ERROR = 4,
+  FILE_NOT_FOUND = 5 , 
+  DB_ERROR = 6 , 
+  TIMEOUT_ERROR = 7,
 }
 
 export enum SERIALIZATION_ERROR { 

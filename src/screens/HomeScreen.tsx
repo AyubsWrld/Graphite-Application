@@ -8,6 +8,7 @@ import {
   Animated,
   Button,
   Image,
+  Alert,
   Easing,
   Modal,
   ActivityIndicator,
@@ -21,7 +22,7 @@ import File from "../assets/icons/file.png";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { HomeStackParamList } from "../navigation/AppNavigator";
 import { AppDataSource } from "../../utils/database/data-source.ts";
-import { readBinaries , openDocumentPicker, writeFile, clearDB, testReading } from '../../lib/modules/FileManager.ts';
+import { readBinaries , openDocumentPicker, writeFile, clearDB, testReading , deleteFileFromESP32 , drop } from '../../lib/modules/FileManager.ts';
 import { UploadProgress } from "../../lib/types/FileTypes";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useFiles } from '../context/FileContext';
@@ -47,7 +48,7 @@ export default function HomeScreen({ route, navigation }: Props) {
     navigation.navigate("Profile");
   };
   const { firstname, email } = route.params;
-  const BINARY_UPLOAD_URL = "192.168.1.83";
+  const BINARY_UPLOAD_URL = "10.60.240.139";
 
   const { files: existingFiles, reloadFiles, isLoading } = useFiles();
   const [progress, setProgress] = useState(0);
@@ -73,6 +74,15 @@ export default function HomeScreen({ route, navigation }: Props) {
   }
   
 
+  const handleDeletion = async ( filename_ : string ) : Promise<void> => { 
+    try {
+      console.log('Invoked deletion function') ; 
+      await deleteFileFromESP32(filename_) ; 
+    } catch (e) {
+      console.error(`File deletion failed ${e}`) ; 
+      Alert.alert('Failed to delete file') ; 
+    }
+  }
   const CIRCLE_SIZE = 36;
   const CIRCLE_STROKE_WIDTH = 4;
   const CIRCLE_RADIUS = (CIRCLE_SIZE - CIRCLE_STROKE_WIDTH) / 2;
@@ -376,7 +386,8 @@ export default function HomeScreen({ route, navigation }: Props) {
                   <Text style={styles.filePercentage}>0.4%</Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => { () => console.log('Handling Deletion'); } } 
+                  onPress={() =>  handleDeletion(file.filename)  } 
+                  // onPress={() =>  drop() } 
                   style={styles.dots}
                 > 
                   <Text>

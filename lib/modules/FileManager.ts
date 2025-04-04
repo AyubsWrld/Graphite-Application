@@ -10,7 +10,7 @@ import { FileData as File_ } from "../../utils/database/entities/FileData";
 import { Document as DocumentTable } from "../../utils/database/entities/Document";
 import FileViewer from 'react-native-file-viewer' ; 
 
-const ESP32_IP = "192.168.1.83"; 
+const ESP32_IP = "10.60.240.139"; 
 const ESP32_PORT = 5000;
 
 const initializeDatabase = async () => {
@@ -168,17 +168,17 @@ export const writeFile = async (file: FileContainer): Promise<FILE_ERROR> => {
 };
 
 
-// export const drop = async () => 
-// {
-//   try {
-//     await initializeDatabase() ; 
-//     const imageRepository = AppDataSource.getRepository(ImageTable) ; 
-//     await imageRepository.clear() ; 
-//   } catch (error) {
-//     console.log(`Error while dropping db: ${error}`) ; 
-//   }
-//
-// }
+export const drop = async () => 
+{
+  try {
+    await initializeDatabase() ; 
+    const imageRepository = AppDataSource.getRepository(File_) ; 
+    await imageRepository.clear() ; 
+  } catch (error) {
+    console.log(`Error while dropping db: ${error}`) ; 
+  }
+
+}
 
 
 export const readFileFromESP32 = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
@@ -293,54 +293,6 @@ export const loadDocuments = async (): Promise<DocumentTable[]> => {
   }
 };
 
-// Function to delete a file from ESP32
-export const deleteFileFromESP32 = async (filename_: string): Promise<FILE_ERROR> => {
-  const TcpSocket = require('react-native-tcp-socket');
-  
-  return new Promise((resolve) => {
-    const client = TcpSocket.createConnection({
-      host: ESP32_IP,
-      port: ESP32_PORT
-    }, () => {
-      console.log(`Connected to ESP32 server to delete file: ${filename_}`);
-      
-      // Send filename first
-      client.write(filename_);
-      
-      // Wait for server acknowledgment
-      let receivedAck = false;
-      
-      client.on('data', (data) => {
-        const response = data.toString('utf8');
-        
-        if (!receivedAck) {
-          console.log('Initial server response:', response);
-          receivedAck = true;
-          
-          // Send delete command to ESP32
-          client.write('delete');
-        } else {
-          console.log('Delete response:', response);
-          
-          if (response === 'OK') {
-            client.end();
-            resolve(FILE_ERROR.FILE_SUCCESS);
-          } else {
-            client.end();
-            resolve(FILE_ERROR.FILE_NOT_FOUND);
-          }
-        }
-      });
-      
-      client.on('error', (error) => {
-        console.error('Error connecting to ESP32:', error);
-        client.destroy();
-        resolve(FILE_ERROR.RESP_ERROR);
-      });
-    });
-  });
-};
-
 export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
   const TcpSocket = require('react-native-tcp-socket');
   return new Promise((resolve) => {
@@ -396,6 +348,87 @@ export const readBinaries = async (filename_: string): Promise<{data: ArrayBuffe
   });
 };
 
+export const deleteFileFromESP32 = async (filename_: string): Promise<FILE_ERROR> => {
+  // First ensure database is initialized
+  await initializeDatabase();
+  
+  const TcpSocket = require('react-native-tcp-socket');
+  
+  // Delete from ESP32 file storage
+  return new Promise((resolve) => {
+    const client = TcpSocket.createConnection({
+      host: ESP32_IP,
+      port: ESP32_PORT
+    }, () => {
+      console.log(`Connected to ESP32 server to delete file: ${filename_}`);
+      
+      // Send filename first
+      client.write(filename_);
+      
+      // Wait for server acknowledgment
+      let receivedAck = false;
+      
+      client.on('data', async (data) => {
+        const response = data.toString('utf8');
+        
+        if (!receivedAck) {
+          console.log('Initial server response:', response);
+          receivedAck = true;
+          
+          // Send delete command to ESP32
+          client.write('delete');
+        } else {
+          console.log('Delete response:', response);
+          
+          if (response === 'OK') {
+            // File successfully deleted from ESP32, now delete from database
+            try {
+                if(!AppDataSource.isInitialized){
+                  AppDataSource.initialize() ; 
+                }
+              const fileRepository = AppDataSource.getRepository(File_);
+              
+              const deleteFileResult = await fileRepository.delete({ filename: filename_ });
+              console.log(`Deleted ${deleteFileResult.affected} records from file table`);
+              
+              
+              if (deleteFileResult.affected > 0 ) {
+                console.log(`File ${filename_} successfully deleted from database`);
+                client.end();
+                resolve(FILE_ERROR.FILE_SUCCESS);
+              } else {
+                console.warn(`File ${filename_} was deleted from ESP32 but not found in database`);
+                client.end();
+                resolve(FILE_ERROR.FILE_SUCCESS); // Still return success since ESP32 deletion worked
+              }
+            } catch (dbError) {
+              console.error('Error deleting from database:', dbError);
+              client.end();
+              resolve(FILE_ERROR.DB_ERROR); // You'll need to add this error type to your enum
+            }
+          } else {
+            client.end();
+            resolve(FILE_ERROR.FILE_NOT_FOUND);
+          }
+        }
+      });
+      
+      client.on('error', (error) => {
+        console.error('Error connecting to ESP32:', error);
+        client.destroy();
+        resolve(FILE_ERROR.RESP_ERROR);
+      });
+      
+      // Add timeout for the connection
+      client.setTimeout(5000, () => {
+        console.error('Connection timeout');
+        client.destroy();
+        resolve(FILE_ERROR.TIMEOUT_ERROR); 
+      });
+    });
+  });
+};
+
 export const testReading = async (filename_: string = 'temp.png'): Promise<{data: ArrayBuffer | null, error: FILE_ERROR}> => {
   const RNFS = require('react-native-fs');
   const TcpSocket = require('react-native-tcp-socket');
@@ -417,6 +450,7 @@ export const testReading = async (filename_: string = 'temp.png'): Promise<{data
           const response = data.toString('utf8');
           console.log('Initial server response:', response);
           receivedAck = true;
+          // client.write('read');
           client.write('read');
         } else {
           // Accumulate binary data
